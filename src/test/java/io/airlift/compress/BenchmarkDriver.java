@@ -215,6 +215,89 @@ public enum BenchmarkDriver
                 }
             },
 
+    LZ4_BLOCK
+            {
+                @Override
+                public long compress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long uncompress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
+                    int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
+
+                    byte[] uncompressed = new byte[contents.length];
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Lz4Decompressor.uncompress(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!Arrays.equals(uncompressed, testData.getContents())) {
+                        throw new AssertionError(String.format(
+                                "Actual   : %s\n" +
+                                        "Expected : %s",
+                                Arrays.toString(uncompressed),
+                                Arrays.toString(testData.getContents())));
+                    }
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long roundTrip(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
+                    byte[] uncompressed = new byte[contents.length];
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
+                        Lz4Decompressor.uncompress(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!Arrays.equals(uncompressed, testData.getContents())) {
+                        throw new AssertionError(String.format(
+                                "Actual   : %s\n" +
+                                        "Expected : %s",
+                                Arrays.toString(uncompressed),
+                                Arrays.toString(testData.getContents())));
+                    }
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public double getCompressionRatio(TestData testData)
+                {
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
+                    int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
+                    return 1.0 * (contents.length - compressedSize) / contents.length;
+                }
+            },
+
     JAVA_STREAM
             {
                 @Override

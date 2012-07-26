@@ -79,9 +79,30 @@ final class SnappyInternalUtils
         return memory.loadByte(data, index);
     }
 
+    public static int loadShort(byte[] data, int index)
+    {
+        return memory.loadShort(data, index);
+    }
+
+    public static void writeShort(byte[] data, int index, short value)
+    {
+        memory.writeShort(data, index, value);
+    }
+
     static int loadInt(byte[] data, int index)
     {
         return memory.loadInt(data, index);
+    }
+
+    public static void writeInt(byte[] data, int index, int value)
+    {
+        memory.writeInt(data, index, value);
+    }
+
+
+    static void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)
+    {
+        memory.copyInt(src, srcIndex, dest, destIndex);
     }
 
     static void copyLong(byte[] src, int srcIndex, byte[] dest, int destIndex)
