@@ -38,12 +38,43 @@ class SlowMemory implements Memory
     }
 
     @Override
+    public int loadShort(byte[] data, int index)
+    {
+        return (data[index] & 0xff) |
+                (data[index + 1] & 0xff) << 8;
+    }
+
+    @Override
+    public void writeShort(byte[] data, int index, short value)
+    {
+        data[index] = (byte) value;
+        data[index + 1] = (byte) (value >> 8);
+    }
+
+    @Override
     public int loadInt(byte[] data, int index)
     {
         return (data[index] & 0xff) |
                 (data[index + 1] & 0xff) << 8 |
                 (data[index + 2] & 0xff) << 16 |
                 (data[index + 3] & 0xff) << 24;
+    }
+
+    @Override
+    public void writeInt(byte[] data, int index, int value)
+    {
+        data[index] = (byte) value;
+        data[index + 1] = (byte) (value >> 8);
+        data[index + 2] = (byte) (value >> 16);
+        data[index + 3] = (byte) (value >> 24);
+    }
+
+    @Override
+    public void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)
+    {
+        for (int i = 0; i < 4; i++) {
+            dest[destIndex + i] = src[srcIndex + i];
+        }
     }
 
     @Override

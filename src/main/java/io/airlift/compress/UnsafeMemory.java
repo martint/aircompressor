@@ -65,12 +65,49 @@ class UnsafeMemory implements Memory
     }
 
     @Override
+    public int loadShort(byte[] data, int index)
+    {
+        assert index >= 0;
+        assert index + 2 <= data.length;
+        return unsafe.getShort(data, BYTE_ARRAY_OFFSET + index) & 0xFFFF;
+    }
+
+    @Override
+    public void writeShort(byte[] data, int index, short value)
+    {
+        assert index >= 0;
+        assert index + 2 <= data.length;
+        unsafe.putShort(data, BYTE_ARRAY_OFFSET + index, value);
+    }
+
+    @Override
     public int loadInt(byte[] data, int index)
     {
         assert index >= 0;
         assert index + 4 <= data.length;
         return unsafe.getInt(data, BYTE_ARRAY_OFFSET + index);
     }
+
+    @Override
+    public void writeInt(byte[] data, int index, int value)
+    {
+        assert index >= 0;
+        assert index + 4 <= data.length;
+        unsafe.putInt(data, BYTE_ARRAY_OFFSET + index, value);
+    }
+
+
+    @Override
+    public void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)
+    {
+        assert srcIndex >= 0;
+        assert srcIndex + 4 <= src.length;
+        assert destIndex >= 0;
+        assert destIndex + 4 <= dest.length;
+        int value = unsafe.getInt(src, BYTE_ARRAY_OFFSET + srcIndex);
+        unsafe.putInt(dest, (BYTE_ARRAY_OFFSET + destIndex), value);
+    }
+
 
     @Override
     public void copyLong(byte[] src, int srcIndex, byte[] dest, int destIndex)

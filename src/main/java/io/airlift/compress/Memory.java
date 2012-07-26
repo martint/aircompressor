@@ -25,7 +25,15 @@ interface Memory
 
     int loadByte(byte[] data, int index);
 
+    int loadShort(byte[] data, int index);
+
+    void writeShort(byte[] data, int index, short value);
+
     int loadInt(byte[] data, int index);
+
+    void writeInt(byte[] data, int index, int value);
+
+    void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex);
 
     void copyLong(byte[] src, int srcIndex, byte[] dest, int destIndex);
 
