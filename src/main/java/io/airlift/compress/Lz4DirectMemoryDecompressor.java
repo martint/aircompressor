@@ -1,5 +1,6 @@
 package io.airlift.compress;
 
+import io.airlift.compress.slice.UnsafeSlice;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -9,6 +10,10 @@ import static io.airlift.compress.SnappyInternalUtils.copyLong;
 import static io.airlift.compress.SnappyInternalUtils.copyMemory;
 import static io.airlift.compress.SnappyInternalUtils.loadByte;
 import static io.airlift.compress.SnappyInternalUtils.loadShort;
+import static io.airlift.compress.UnsafeMemory.copyByte;
+import static io.airlift.compress.UnsafeMemory.readByte;
+import static io.airlift.compress.UnsafeMemory.readInt;
+import static io.airlift.compress.UnsafeMemory.readShort;
 
 public class Lz4DirectMemoryDecompressor
 {
@@ -34,228 +39,240 @@ public class Lz4DirectMemoryDecompressor
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
 
-    public static int getUncompressedLength(byte[] compressed, int compressedOffset)
+    public static int getUncompressedLength(UnsafeSlice compressed, int compressedOffset)
             throws CorruptionException
     {
-        return readUncompressedLength(compressed, compressedOffset)[0];
+        return (int) readUncompressedLength(compressed.getAddress() + compressedOffset)[0];
     }
 
     public static byte[] uncompress(byte[] compressed, int compressedOffset, int compressedSize)
             throws CorruptionException
     {
-        // Read the uncompressed length from the front of the compressed input
-        int[] varInt = readUncompressedLength(compressed, compressedOffset);
-        int expectedLength = varInt[0];
-        compressedOffset += varInt[1];
-        compressedSize -= varInt[1];
-
-        // allocate the uncompressed buffer
-        byte[] uncompressed = new byte[expectedLength];
-
-        // Process the entire input
-        int uncompressedSize = decompressAllChunks(
-                compressed,
-                compressedOffset,
-                compressedSize,
-                uncompressed,
-                0);
-
-        if (!(expectedLength == uncompressedSize)) {
-            throw new CorruptionException(String.format("Recorded length is %s bytes but actual length after decompression is %s bytes ",
-                    expectedLength,
-                    uncompressedSize));
-        }
-
-        return uncompressed;
+        //        // Read the uncompressed length from the front of the compressed input
+        //        int[] varInt = readUncompressedLength(compressed, compressedOffset);
+        //        int expectedLength = varInt[0];
+        //        compressedOffset += varInt[1];
+        //        compressedSize -= varInt[1];
+        //
+        //        // allocate the uncompressed buffer
+        //        byte[] uncompressed = new byte[expectedLength];
+        //
+        //        // Process the entire input
+        //        int uncompressedSize = decompressAllChunks(
+        //                compressed,
+        //                compressedOffset,
+        //                compressedSize,
+        //                uncompressed,
+        //                0);
+        //
+        //        if (!(expectedLength == uncompressedSize)) {
+        //            throw new CorruptionException(String.format("Recorded length is %s bytes but actual length after decompression is %s bytes ",
+        //                    expectedLength,
+        //                    uncompressedSize));
+        //        }
+        //
+        //        return uncompressed;
+        throw new UnsupportedOperationException("not yet implemented");
     }
 
-    public static int uncompress(byte[] compressed, int compressedOffset, int compressedSize, byte[] uncompressed, int uncompressedOffset)
+    public static int uncompress(UnsafeSlice compressed, int compressedOffset, int compressedSize, UnsafeSlice uncompressed, int uncompressedOffset)
             throws CorruptionException
     {
-        // Read the uncompressed length from the front of the compressed input
-        int[] varInt = readUncompressedLength(compressed, compressedOffset);
-        int expectedLength = varInt[0];
-        compressedOffset += varInt[1];
-        compressedSize -= varInt[1];
+        synchronized (compressed) {
+            synchronized (uncompressed) {
+                long inputAddress = compressed.getAddress() + compressedOffset;
+                int inputLength = compressedSize;
+                long outputAddress = uncompressed.getAddress() + uncompressedOffset;
+                int outputLength = uncompressed.length() - uncompressedOffset;
+                return uncompress(inputAddress, inputLength, outputAddress, outputLength);
+            }
+        }
+    }
 
-        SnappyInternalUtils.checkArgument(expectedLength <= uncompressed.length - uncompressedOffset,
-                "Uncompressed length %s must be less than %s", expectedLength, uncompressed.length - uncompressedOffset);
+    public static int uncompress(long inputAddress, int inputLength, long outputAddress, int outputLength)
+            throws CorruptionException
+    {
+        UnsafeMemory.inputAddress = inputAddress;
+        UnsafeMemory.inputLength = inputLength;
+        UnsafeMemory.outputAddress = outputAddress;
+        UnsafeMemory.outputLength = outputLength;
 
-        // Process the entire input
-        int uncompressedSize = decompressAllChunks(
-                compressed,
-                compressedOffset,
-                compressedSize,
-                uncompressed,
-                uncompressedOffset);
+        long inputLimit = inputAddress + inputLength;
+        long outputLimit = outputAddress + outputLength;
 
-        if (!(expectedLength == uncompressedSize)) {
+        long[] varInt = readUncompressedLength(inputAddress);
+        int expectedLength = (int) varInt[0];
+        long input = varInt[1];
+
+        SnappyInternalUtils.checkArgument(expectedLength <= outputLength,
+                "Uncompressed buffer must be at least %s bytes, but is only %s bytes", expectedLength, outputLength);
+
+
+        long endPosition = decompressAllChunks(
+                input,
+                inputLimit,
+                outputAddress,
+                outputLimit);
+
+        long actualLength = endPosition - outputAddress;
+
+        if (expectedLength != actualLength) {
             throw new CorruptionException(String.format("Recorded length is %s bytes but actual length after decompression is %s bytes ",
                     expectedLength,
-                    uncompressedSize));
+                    actualLength));
         }
 
         return expectedLength;
     }
 
-    private static int decompressAllChunks(
-            final byte[] input,
-            final int inputOffset,
-            final int inputSize,
-            final byte[] output,
-            final int outputOffset)
+    private static long decompressAllChunks(
+            long inputAddress,
+            final long inputLimit,
+            long outputAddress,
+            long outputLimit)
     {
-        int outputIndex = outputOffset;
-        int inputIndex = inputOffset;
+        while (inputAddress < inputLimit) {
+            int chunkSize = readInt(inputAddress);
+            inputAddress += 4;
 
-        while (inputIndex < inputOffset + inputSize) {
-            int chunkSize = SnappyInternalUtils.loadInt(input, inputIndex);
-            inputIndex += 4;
-
-            outputIndex = decompressChunk(input, inputIndex, chunkSize, output, outputIndex);
-            inputIndex += chunkSize;
+            outputAddress = decompressChunk(inputAddress, inputAddress + chunkSize, outputAddress, outputLimit);
+            inputAddress += chunkSize;
         }
 
-        return outputIndex - outputOffset;
+        return outputAddress;
     }
 
-    public static int decompressChunk(
-            final byte[] input,
-            final int inputOffset,
-            final int inputSize,
-            final byte[] output,
-            final int outputOffset)
+    public static long decompressChunk(
+            long input,
+            final long inputLimit,
+            long output,
+            final long outputLimit)
             throws CorruptionException
     {
-        int inputIndex = inputOffset;
-        int outputIndex = outputOffset;
+        long fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
+        long fastOutputLimit = outputLimit - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
-        int inputLimit = inputOffset + inputSize;
-        int fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
-        int fastOutputLimit = output.length - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
-
-        while (inputIndex < inputLimit) {
-            int token = loadByte(input, inputIndex++);
+        while (input < inputLimit) {
+            int token = readByte(input++);
 
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
             if (literalLength == 0xf) {
-                while (loadByte(input, inputIndex) == 255) {
+                while (readByte(input) == 255) {
                     literalLength += 255;
-                    inputIndex++;
+                    input++;
                 }
-                literalLength += loadByte(input, inputIndex++);
+                literalLength += readByte(input++);
             }
 
             // copy literal
-            int literalOutputLimit = outputIndex + literalLength;
-            if (literalOutputLimit > fastOutputLimit || inputIndex + literalLength > fastInputLimit) {
+            long literalOutputLimit = output + literalLength;
+            if (literalOutputLimit > fastOutputLimit || input + literalLength > fastInputLimit) {
                 // slow, precise copy
-                copyMemory(input, inputIndex, output, outputIndex, literalLength);
-                return literalOutputLimit; //outputIndex + literalLength;
+                UnsafeMemory.copyMemory(input, output, literalLength);
+                return literalOutputLimit;
             }
 
             // fast copy. We may overcopy but there's enough room in input and output to not overrun them
             do {
-                copyLong(input, inputIndex, output, outputIndex);
-                inputIndex += 8;
-                outputIndex += 8;
+                UnsafeMemory.copyLong(output, input);
+                input += 8;
+                output += 8;
             }
-            while (outputIndex < literalOutputLimit);
-            inputIndex -= (outputIndex - literalOutputLimit); // adjust index if we overcopied
-            outputIndex = literalOutputLimit;
+            while (output < literalOutputLimit);
+            input -= (output - literalOutputLimit); // adjust index if we overcopied
+            output = literalOutputLimit;
 
             // get offset
-            int offset = loadShort(input, inputIndex);
-            inputIndex += 2;
+            int offset = readShort(input);
+            input += 2;
 
             // get matchlength
             int matchLength = token & 0xf; // bottom-most 4 bits of token
             if (matchLength == 0xf) {
-                while (loadByte(input, inputIndex) == 255) {
+                while (readByte(input) == 255) {
                     matchLength += 255;
-                    inputIndex++;
+                    input++;
                 }
-                matchLength += loadByte(input, inputIndex++);
+                matchLength += readByte(input++);
             }
             matchLength += 4; // implicit length from initial 4-byte match in encoder
 
             // copy repeated sequence
-            int sourceIndex = outputIndex - offset;
+            long source = output - offset;
             if (offset < 8) {
                 // copies 8 bytes from sourceIndex to destIndex and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
                 int dec1 = DEC_TABLE_1[offset];
 
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
-                sourceIndex -= dec1;
+                copyByte(output++, source++);
+                copyByte(output++, source++);
+                copyByte(output++, source++);
+                copyByte(output++, source++);
+                source -= dec1;
 
-                copyInt(output, sourceIndex, output, outputIndex);
-                outputIndex += 4;
-                sourceIndex -= DEC_TABLE_2[offset];
+                UnsafeMemory.copyInt(output, source);
+                output += 4;
+                source -= DEC_TABLE_2[offset];
             }
             else {
-                copyLong(output, sourceIndex, output, outputIndex);
-                outputIndex += 8;
-                sourceIndex += 8;
+                UnsafeMemory.copyLong(output, source);
+                source += 8;
+                output += 8;
             }
 
             // subtract 8 for the bytes we copied above
-            int matchOutputLimit = outputIndex + matchLength - 8;
+            long matchOutputLimit = output + matchLength - 8;
 
             if (matchOutputLimit > fastOutputLimit) {
-                while (outputIndex < fastOutputLimit) {
-                    copyLong(output, sourceIndex, output, outputIndex);
-                    sourceIndex += 8;
-                    outputIndex += 8;
+                while (output < fastOutputLimit) {
+                    UnsafeMemory.copyLong(output, source);
+                    source += 8;
+                    output += 8;
                 }
 
-                while (outputIndex < matchOutputLimit) {
-                    output[outputIndex++] = output[sourceIndex++];
+                while (output < matchOutputLimit) {
+                    copyByte(output++, source++);
                 }
 
-                if (outputIndex == output.length) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
-                    return outputIndex;
+                if (output == outputLimit) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
+                    return output;
                 }
             }
 
-            while (outputIndex < matchOutputLimit) {
-                copyLong(output, sourceIndex, output, outputIndex);
-                sourceIndex += 8;
-                outputIndex += 8;
+            while (output < matchOutputLimit) {
+                UnsafeMemory.copyLong(output, source);
+                source += 8;
+                output += 8;
             }
 
-            outputIndex = matchOutputLimit; // correction in case we overcopied
+            output = matchOutputLimit; // correction in case we overcopied
         }
 
-        return outputIndex;
+        return output;
     }
 
     /**
      * Reads the variable length integer encoded a the specified offset, and returns this length with the number of bytes read.
      */
-    private static int[] readUncompressedLength(byte[] compressed, int compressedOffset)
+    private static long[] readUncompressedLength(long compressed)
             throws CorruptionException
     {
         int result;
-        int bytesRead = 0;
         {
-            int b = compressed[compressedOffset + bytesRead++] & 0xFF;
+            int b = readByte(compressed++);
             result = b & 0x7f;
             if ((b & 0x80) != 0) {
-                b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                b = readByte(compressed++);
                 result |= (b & 0x7f) << 7;
                 if ((b & 0x80) != 0) {
-                    b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                    b = readByte(compressed++);
                     result |= (b & 0x7f) << 14;
                     if ((b & 0x80) != 0) {
-                        b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                        b = readByte(compressed++);
                         result |= (b & 0x7f) << 21;
                         if ((b & 0x80) != 0) {
-                            b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                            b = readByte(compressed++);
                             result |= (b & 0x7f) << 28;
                             if ((b & 0x80) != 0) {
                                 throw new CorruptionException("last byte of compressed length int has high bit set");
@@ -265,7 +282,7 @@ public class Lz4DirectMemoryDecompressor
                 }
             }
         }
-        return new int[] { result, bytesRead };
+        return new long[] { result, compressed };
     }
 
 }

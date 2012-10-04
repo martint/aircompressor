@@ -21,7 +21,8 @@ import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 
-class UnsafeMemory implements Memory
+class UnsafeMemory
+        implements Memory
 {
     private static final Unsafe unsafe;
 
@@ -46,6 +47,75 @@ class UnsafeMemory implements Memory
     public boolean fastAccessSupported()
     {
         return true;
+    }
+
+
+    public static long inputAddress;
+    public static long inputLength;
+    public static long outputAddress;
+    public static long outputLength;
+
+    public static void checkAddress(long address, long length)
+    {
+//        if (address >= inputAddress && address + length <= inputAddress + inputLength) {
+//            return;
+//        }
+//        if (address >= outputAddress && address + length <= outputAddress + outputLength) {
+//            return;
+//        }
+//        throw new IllegalStateException(String.format("address=%d length=%d inputAddress=%d inputLength=%d outputAddress=%d outputLength=%d",
+//                address,
+//                length,
+//                inputAddress,
+//                inputLength,
+//                outputAddress,
+//                outputLength));
+    }
+
+    public static int readByte(long address)
+    {
+        checkAddress(address, 1);
+        return unsafe.getByte(address) & 0xFF;
+    }
+
+    public static int readShort(long address)
+    {
+        checkAddress(address, 2);
+        return unsafe.getShort(address);
+    }
+
+    public static int readInt(long address)
+    {
+        checkAddress(address, 4);
+        return unsafe.getInt(address);
+    }
+
+    public static void copyByte(long outputAddress, long inputAddress)
+    {
+        checkAddress(outputAddress, 1);
+        checkAddress(inputAddress, 1);
+        unsafe.putByte(outputAddress, unsafe.getByte(inputAddress));
+    }
+
+    public static void copyInt(long outputAddress, long inputAddress)
+    {
+        checkAddress(outputAddress, 4);
+        checkAddress(inputAddress, 4);
+        unsafe.putInt(outputAddress, unsafe.getInt(inputAddress));
+    }
+
+
+    public static void copyLong(long outputAddress, long inputAddress)
+    {
+        checkAddress(outputAddress, 8);
+        checkAddress(inputAddress, 8);
+
+        unsafe.putLong(outputAddress, unsafe.getLong(inputAddress));
+    }
+
+    public static void copyMemory(long inputAddress, long outputAddress, int length)
+    {
+        unsafe.copyMemory(inputAddress, outputAddress, length);
     }
 
     @Override

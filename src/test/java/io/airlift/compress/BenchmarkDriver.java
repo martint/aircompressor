@@ -109,6 +109,175 @@ public enum BenchmarkDriver
                 }
             },
 
+    JAVA_SLICE_BLOCK_2
+            {
+                @Override
+                public long compress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    UnsafeSlice contents = testData.getContentsSlice();
+                    UnsafeSlice compressed = testData.getCompressedSliceBuffer();
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Snappy.compressUnsafeSlice(contents, 0, contents.length(), compressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long uncompress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Snappy.maxCompressedLength(contents.length)];
+                    int compressedSize = Snappy.compress(contents, 0, contents.length, compressed, 0);
+
+                    byte[] uncompressed = new byte[contents.length];
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Snappy.uncompress(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!Arrays.equals(uncompressed, testData.getContents())) {
+                        throw new AssertionError(String.format(
+                                "Actual   : %s\n" +
+                                        "Expected : %s",
+                                Arrays.toString(uncompressed),
+                                Arrays.toString(testData.getContents())));
+                    }
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long roundTrip(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Snappy.maxCompressedLength(contents.length)];
+                    byte[] uncompressed = new byte[contents.length];
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        int compressedSize = Snappy.compress(contents, 0, contents.length, compressed, 0);
+                        Snappy.uncompress(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!Arrays.equals(uncompressed, testData.getContents())) {
+                        throw new AssertionError(String.format(
+                                "Actual   : %s\n" +
+                                        "Expected : %s",
+                                Arrays.toString(uncompressed),
+                                Arrays.toString(testData.getContents())));
+                    }
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public double getCompressionRatio(TestData testData)
+                {
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Snappy.maxCompressedLength(contents.length)];
+                    int compressedSize = Snappy.compress(contents, 0, contents.length, compressed, 0);
+                    return 1.0 * (contents.length - compressedSize) / contents.length;
+                }
+            },
+
+    JAVA_DIRECT_MEMORY
+            {
+                @Override
+                public long compress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    UnsafeSlice contents = testData.getContentsSlice();
+                    UnsafeSlice compressed = testData.getCompressedSliceBuffer();
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Snappy.compressDirectMemory(contents, 0, contents.length(), compressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long uncompress(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    UnsafeSlice contents = testData.getContentsSlice();
+                    UnsafeSlice compressed = testData.getCompressedSliceBuffer();
+                    int compressedSize = Snappy.compressDirectMemory(contents, 0, contents.length(), compressed, 0);
+
+                    UnsafeSlice uncompressed = testData.getUncompressedSliceBuffer();
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        Snappy.uncompressDirectMemory(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!uncompressed.equals(testData.getContentsSlice())) {
+                        throw new AssertionError("foo");
+//                        throw new AssertionError(String.format(
+//                                "Actual   : %s\n" +
+//                                        "Expected : %s",
+//                                Arrays.toString(uncompressed.getBytes(0, uncompressed.length())),
+//                                Arrays.toString(testData.getContents())));
+                    }
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public long roundTrip(TestData testData, long iterations)
+                {
+                    // Read the file and create buffers out side of timing
+                    UnsafeSlice contents = testData.getContentsSlice();
+                    UnsafeSlice compressed = testData.getCompressedSliceBuffer();
+                    UnsafeSlice uncompressed = UnsafeSlice.allocate(contents.length());
+
+                    long start = System.nanoTime();
+                    while (iterations-- > 0) {
+                        int compressedSize = Snappy.compressDirectMemory(contents, 0, contents.length(), compressed, 0);
+                        Snappy.uncompressDirectMemory(compressed, 0, compressedSize, uncompressed, 0);
+                    }
+                    long timeInNanos = System.nanoTime() - start;
+
+                    // verify results
+                    if (!uncompressed.equals(testData.getContentsSlice())) {
+                        throw new AssertionError(String.format(
+                                "Actual   : %s\n" +
+                                        "Expected : %s",
+                                "UNKNOWN",
+                                Arrays.toString(testData.getContents())));
+                    }
+
+                    uncompressed.free();
+
+                    return timeInNanos;
+                }
+
+                @Override
+                public double getCompressionRatio(TestData testData)
+                {
+                    byte[] contents = testData.getContents();
+                    byte[] compressed = new byte[Snappy.maxCompressedLength(contents.length)];
+                    int compressedSize = Snappy.compress(contents, 0, contents.length, compressed, 0);
+                    return 1.0 * (contents.length - compressedSize) / contents.length;
+                }
+            },
+
     JNI_BLOCK
             {
                 @Override
