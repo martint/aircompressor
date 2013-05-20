@@ -67,6 +67,36 @@ public class SnappyBench
         snappyBench.warmUp();
 
         // Easy to use individual tests
+        BenchmarkDriver oldDriver = LZ4_OTHER;
+        BenchmarkDriver newDriver = LZ4_DIRECT_MEMORY;
+        for (int i = 0; i < 100; i++) {
+//            snappyBench.runCompress(TestData.txt1, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.txt2, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.txt3, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.txt4, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.sum, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.lsp, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.man, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.c, oldDriver, newDriver);
+//            snappyBench.runCompress(TestData.cp, oldDriver, newDriver);
+
+            snappyBench.runUncompress(TestData.html, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.txt1, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.txt2, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.txt3, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.txt4, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.sum, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.lsp, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.man, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.c, oldDriver, newDriver);
+            snappyBench.runUncompress(TestData.cp, oldDriver, newDriver);
+            System.err.println();
+        }
+
+//        snappyBench.runCompress("Block Compress", JNI_BLOCK, JAVA_BLOCK);
+//        snappyBench.runUncompress("Block Uncompress", JNI_BLOCK, JAVA_BLOCK);
+//        snappyBench.runRoundTrip("Block Round Trip", JNI_BLOCK, JAVA_BLOCK);
+//
 //        for (int i = 0; i < 100; i++) {
 //            snappyBench.runUncompress(TestData.txt1);
 //            snappyBench.runUncompress(TestData.txt2);

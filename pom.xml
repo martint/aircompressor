@@ -102,6 +102,11 @@
             <version>0.3</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>lz4-java</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>0.2</version>
+        </dependency>
     </dependencies>
 
     <build>
