@@ -7,6 +7,7 @@ import static io.airlift.compress.SnappyInternalUtils.copyMemory;
 import static io.airlift.compress.SnappyInternalUtils.loadInt;
 import static io.airlift.compress.SnappyInternalUtils.loadLong;
 import static io.airlift.compress.SnappyInternalUtils.loadShort;
+import static io.airlift.compress.SnappyInternalUtils.writeInt;
 import static io.airlift.compress.SnappyInternalUtils.writeShort;
 
 public class Lz4Compressor
@@ -36,7 +37,7 @@ public class Lz4Compressor
 
     private final static int MIN_LENGTH = MATCH_FIND_LIMIT + 1;
 
-    private final static int BLOCK_SIZE = 1 << 15;
+    private final static int BLOCK_SIZE = 1 << 16;
 
     public static int maxCompressedLength(int sourceLength)
     {
@@ -51,7 +52,9 @@ public class Lz4Compressor
             final int compressedOffset)
     {
         // First write the uncompressed size to the output as a variable length int
-        int compressedIndex = writeUncompressedLength(compressed, compressedOffset, uncompressedLength);
+//        int compressedIndex = writeUncompressedLength(compressed, compressedOffset, uncompressedLength);
+        writeInt(compressed, compressedOffset, uncompressedLength);
+        int compressedIndex = compressedOffset + 4; // size of int
 
         int hashTableSize = TABLESIZE;
         BufferRecycler recycler = BufferRecycler.instance();
@@ -71,6 +74,7 @@ public class Lz4Compressor
                     begin, // 4 bytes for block size header
                     table);
 
+//            SnappyInternalUtils.writeInt(compressed, sizeIndex, Math.min(BLOCK_SIZE, uncompressedLength - read));
             SnappyInternalUtils.writeInt(compressed, sizeIndex, compressedIndex - begin);
         }
 
@@ -123,7 +127,7 @@ public class Lz4Compressor
                 }
 
                 nextHash = hash(loadInt(input, nextInputIndex));
-                referenceIndex = inputOffset + table[hash];
+                referenceIndex = inputOffset + (table[hash] & 0xFFFF);
                 table[hash] = (short) (inputIndex - inputOffset);
             }
             while (loadInt(input, referenceIndex) != loadInt(input, inputIndex));
@@ -198,7 +202,7 @@ public class Lz4Compressor
                 // Test next position
                 int x = loadInt(input, inputIndex);
                 int y = hash(x);
-                referenceIndex = inputOffset + table[y];
+                referenceIndex = inputOffset + (table[y] & 0xFFFF);
                 table[y] = (short) (inputIndex - inputOffset);
 
                 if (loadInt(input, referenceIndex) != x) {

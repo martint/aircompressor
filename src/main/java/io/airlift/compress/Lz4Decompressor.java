@@ -48,11 +48,8 @@ public class Lz4Decompressor
     public static int uncompress(Slice compressed, int compressedOffset, int compressedSize, Slice uncompressed, int uncompressedOffset)
             throws CorruptionException
     {
-        // Read the uncompressed length from the front of the compressed input
-        int[] varInt = readUncompressedLength(compressed, compressedOffset);
-        int expectedLength = varInt[0];
-        compressedOffset += varInt[1];
-        compressedSize -= varInt[1];
+        int expectedLength = Slice.unsafe.getInt(compressed.base, compressed.address + compressedOffset);
+        compressedOffset += 4;
 
         SnappyInternalUtils.checkArgument(expectedLength <= uncompressed.length() - uncompressedOffset,
                 "Uncompressed length %s must be less than %s", expectedLength, uncompressed.length() - uncompressedOffset);
@@ -83,13 +80,14 @@ public class Lz4Decompressor
     {
         long outputIndex = output.address + outputOffset;
         long inputIndex = input.address + inputOffset;
+        long inputLimit = input.address + inputOffset + inputSize;
 
-        while (inputIndex < input.address + inputOffset + inputSize) {
-            int chunkSize = Slice.unsafe.getInt(input.base, inputIndex); //input.getInt(inputIndex);
+        while (inputIndex < inputLimit) {
+            int outputSize = Slice.unsafe.getInt(input.base, inputIndex);
             inputIndex += 4;
 
-            outputIndex += decompressChunk(input, inputIndex, chunkSize, output, outputIndex);
-            inputIndex += chunkSize;
+            inputIndex += decompressChunk(input, inputIndex, output, outputIndex, outputSize);
+            outputIndex += outputSize;
         }
 
         return (int) (outputIndex - outputOffset - output.address);
@@ -97,20 +95,19 @@ public class Lz4Decompressor
 
     public static int decompressChunk(
             final Slice input,
-            final long inputBase,
-            final int inputSize,
+            final long inputOffset,
             final Slice output,
-            final long outputBase)
+            final long outputOffset,
+            final int outputSize)
             throws CorruptionException
     {
-        long inputIndex = inputBase; //input.address + inputOffset;
-        long outputIndex = outputBase;
+        long inputIndex = inputOffset;
+        long outputIndex = outputOffset;
 
-        long inputLimit = inputIndex + inputSize;
-        long fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
-        long fastOutputLimit = output.address + output.length() - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
+        long outputLimit = outputOffset + outputSize;
+        long fastOutputLimit = outputLimit - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
-        while (inputIndex < inputLimit) {
+        while (true) {
             int token = Slice.unsafe.getByte(input.base, inputIndex++) & 0xFF;
 
             // decode literal length
@@ -126,11 +123,17 @@ public class Lz4Decompressor
 
             // copy literal
             long literalOutputLimit = outputIndex + literalLength;
-            if (literalOutputLimit > fastOutputLimit || inputIndex + literalLength > fastInputLimit) {
+            if (literalOutputLimit > fastOutputLimit) {
+                if (literalOutputLimit != outputLimit) {
+                    throw new ArrayIndexOutOfBoundsException();
+                }
                 // slow, precise copy
-//                Slice.unsafe.copyMemory(input.base, inputIndex, output.base, outputIndex, literalLength);
-                copy(output, outputIndex, input, inputIndex, literalLength);
-                return (int) (literalOutputLimit - outputBase); //outputIndex + literalLength;
+                Slice.unsafe.copyMemory(input.base, inputIndex, output.base, outputIndex, literalLength);
+//                copy(output, outputIndex, input, inputIndex, literalLength);
+                outputIndex += literalLength;
+                inputIndex += literalLength;
+                break;
+//                return (int) (literalOutputLimit - outputOffset); //outputIndex + literalLength;
             }
 
             // fast copy. We may overcopy but there's enough room in input and output to not overrun them
@@ -144,8 +147,12 @@ public class Lz4Decompressor
             outputIndex = literalOutputLimit;
 
             // get offset
-            int offset = Slice.unsafe.getShort(input.base, inputIndex) & 0xFFFF;
+            int offset = Slice.unsafe.getShort(input.base, inputIndex);// & 0xFFFF;
             inputIndex += 2;
+
+            if (outputIndex - offset < outputOffset) {
+                throw new ArrayIndexOutOfBoundsException();
+            }
 
             // get matchlength
             int matchLength = token & 0xf; // bottom-most 4 bits of token
@@ -156,19 +163,6 @@ public class Lz4Decompressor
                     matchLength += value;
                 }
                 while (value == 255);
-
-//                while (value == 255) {
-//                    value = (Slice.unsafe.getByte(input.base, inputIndex++)) & 0xFF;
-//                    matchLength += value;
-//                }
-
-//                byte value = Slice.unsafe.getByte(input.base, inputIndex++);
-//                while (value == -1) {
-//                    matchLength += 255;
-//                    value = Slice.unsafe.getByte(input.base, inputIndex++);
-//                }
-//                matchLength += (value & 0xFF);
-
             }
             matchLength += 4; // implicit length from initial 4-byte match in encoder
 
@@ -197,25 +191,44 @@ public class Lz4Decompressor
             // subtract 8 for the bytes we copied above
             long matchOutputLimit = outputIndex + matchLength - 8;
 
-            long minOutputLimit = Math.min(matchOutputLimit, fastOutputLimit);
-            while (outputIndex < minOutputLimit) {
-                Slice.unsafe.putLong(output.base, outputIndex, Slice.unsafe.getLong(output.base, sourceIndex));
-                sourceIndex += 8;
-                outputIndex += 8;
-            }
+            if (matchOutputLimit > fastOutputLimit) {
+                if (matchOutputLimit > outputLimit - 5) {
+                    throw new ArrayIndexOutOfBoundsException();
+                }
 
-            while (outputIndex < matchOutputLimit) {
-                Slice.unsafe.putByte(output.base, outputIndex++, Slice.unsafe.getByte(output.base, sourceIndex++));
-            }
+                // match output limit is beyond the max safe limit for copying long-at-a-time
+                // so first copy up to fastOutputLimit
+                if (outputIndex < fastOutputLimit) {
+                    do {
+                        Slice.unsafe.putLong(output.base, outputIndex, Slice.unsafe.getLong(output.base, sourceIndex));
+                        sourceIndex += 8;
+                        outputIndex += 8;
+                    }
+                    while (outputIndex < fastOutputLimit);
+                }
 
-            if (outputIndex == output.length()) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
-                return (int) (outputIndex - outputBase);
+                // and then do byte-at-a-time until matchOutputLimit
+                while (outputIndex < matchOutputLimit) {
+                    Slice.unsafe.putByte(output.base, outputIndex++, Slice.unsafe.getByte(output.base, sourceIndex++));
+                }
+
+//                // correction in case we overcopied (i.e., matchOutputLimit - fastOutputLimit < SIZE_OF_LONG)
+//                outputIndex = matchOutputLimit;
+            }
+            else {
+                do {
+                    Slice.unsafe.putLong(output.base, outputIndex, Slice.unsafe.getLong(output.base, sourceIndex));
+                    sourceIndex += 8;
+                    outputIndex += 8;
+                }
+                while (outputIndex < matchOutputLimit);
             }
 
             outputIndex = matchOutputLimit; // correction in case we overcopied
         }
 
-        return (int) (outputIndex - outputBase);
+//        return (int) (outputIndex - outputOffset);
+        return (int) (inputIndex - inputOffset);
     }
 
     private static void copy(Slice destination, long destinationIndex, Slice source, long offset, int length)

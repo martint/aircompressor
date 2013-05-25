@@ -1,15 +1,7 @@
 package io.airlift.compress;
 
 import io.airlift.compress.slice.UnsafeSlice;
-import sun.misc.Unsafe;
 
-import java.lang.reflect.Field;
-
-import static io.airlift.compress.SnappyInternalUtils.copyInt;
-import static io.airlift.compress.SnappyInternalUtils.copyLong;
-import static io.airlift.compress.SnappyInternalUtils.copyMemory;
-import static io.airlift.compress.SnappyInternalUtils.loadByte;
-import static io.airlift.compress.SnappyInternalUtils.loadShort;
 import static io.airlift.compress.UnsafeMemory.copyByte;
 import static io.airlift.compress.UnsafeMemory.readByte;
 import static io.airlift.compress.UnsafeMemory.readInt;
@@ -81,13 +73,11 @@ public class Lz4DirectMemoryDecompressor
         long inputLimit = inputAddress + inputLength;
         long outputLimit = outputAddress + outputLength;
 
-        long[] varInt = readUncompressedLength(inputAddress);
-        int expectedLength = (int) varInt[0];
-        long input = varInt[1];
+        int expectedLength = readInt(inputAddress);
+        long input = inputAddress + 4;
 
         SnappyInternalUtils.checkArgument(expectedLength <= outputLength,
                 "Uncompressed buffer must be at least %s bytes, but is only %s bytes", expectedLength, outputLength);
-
 
         long endPosition = decompressAllChunks(
                 input,
@@ -165,7 +155,7 @@ public class Lz4DirectMemoryDecompressor
             output = literalOutputLimit;
 
             // get offset
-            int offset = readShort(input);
+            int offset = readShort(input) & 0xFFFF;
             input += 2;
 
             // get matchlength
