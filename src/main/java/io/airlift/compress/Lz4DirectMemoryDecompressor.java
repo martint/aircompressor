@@ -3,6 +3,7 @@ package io.airlift.compress;
 import io.airlift.compress.slice.UnsafeSlice;
 
 import static io.airlift.compress.UnsafeMemory.copyByte;
+import static io.airlift.compress.UnsafeMemory.outputAddress;
 import static io.airlift.compress.UnsafeMemory.readByte;
 import static io.airlift.compress.UnsafeMemory.readInt;
 import static io.airlift.compress.UnsafeMemory.readShort;
@@ -12,11 +13,11 @@ public class Lz4DirectMemoryDecompressor
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
 
-    public static int getUncompressedLength(UnsafeSlice compressed, int compressedOffset)
-            throws CorruptionException
-    {
-        return (int) readUncompressedLength(compressed.getAddress() + compressedOffset)[0];
-    }
+//    public static int getUncompressedLength(UnsafeSlice compressed, int compressedOffset)
+//            throws CorruptionException
+//    {
+//        return (int) readUncompressedLength(compressed.getAddress() + compressedOffset)[0];
+//    }
 
     public static byte[] uncompress(byte[] compressed, int compressedOffset, int compressedSize)
             throws CorruptionException
@@ -116,14 +117,15 @@ public class Lz4DirectMemoryDecompressor
     public static long decompressChunk(
             long input,
             final long inputLimit,
-            long output,
+            long outputOffset,
             final long outputLimit)
             throws CorruptionException
     {
+        long output = outputOffset;
         long fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
         long fastOutputLimit = outputLimit - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
-        while (input < inputLimit) {
+        while (true) {
             int token = readByte(input++);
 
             // decode literal length
@@ -138,19 +140,24 @@ public class Lz4DirectMemoryDecompressor
 //                }
 //                while (value == 255);
 
-                while (readByte(input) == 255) {
-                    literalLength += 255;
-                    input++;
+                int value = 255;
+                while (input < inputLimit && value == 255) {
+                    value = readByte(input++);
+                    literalLength += value;
                 }
-                literalLength += readByte(input++);
             }
 
             // copy literal
             long literalOutputLimit = output + literalLength;
-            if (literalOutputLimit > fastOutputLimit || input + literalLength > fastInputLimit) {
+            if (literalOutputLimit > (fastOutputLimit + 4) || input + literalLength > inputLimit - (2+1+5)) {
+                if (literalOutputLimit > outputLimit || input + literalLength != inputLimit) {
+                    throw new ArrayIndexOutOfBoundsException();
+                }
                 // slow, precise copy
                 UnsafeMemory.copyMemory(input, output, literalLength);
-                return literalOutputLimit;
+                input += literalLength;
+                output += literalLength;
+                break;
             }
 
             // fast copy. We may overcopy but there's enough room in input and output to not overrun them
@@ -167,6 +174,10 @@ public class Lz4DirectMemoryDecompressor
             int offset = readShort(input) & 0xFFFF;
             input += 2;
 
+            if (output - offset < outputOffset) {
+                throw new ArrayIndexOutOfBoundsException();
+            }
+
             // get matchlength
             int matchLength = token & 0xf; // bottom-most 4 bits of token
             if (matchLength == 0xf) {
@@ -178,13 +189,21 @@ public class Lz4DirectMemoryDecompressor
 //                }
 //                while (value == 255);
 //
-                while (readByte(input) == 255) {
-                    matchLength += 255;
-                    input++;
+                while (input < inputLimit - (5 + 1)) {
+                    int value = readByte(input++);
+                    matchLength += value;
+                    if (value == 255) {
+                        continue;
+                    }
+                    break;
                 }
-                matchLength += readByte(input++);
+//                while (readByte(input) == 255) {
+//                    matchLength += 255;
+//                    input++;
+//                }
+//                matchLength += readByte(input++);
             }
-            matchLength += 4; // implicit length from initial 4-byte match in encoder
+//            matchLength += 4; // implicit length from initial 4-byte match in encoder
 
             // copy repeated sequence
             long source = output - offset;
@@ -237,29 +256,35 @@ public class Lz4DirectMemoryDecompressor
             }
 
             // subtract 8 for the bytes we copied above
-            long matchOutputLimit = output + matchLength - 8;
+            long matchOutputLimit = output + matchLength - (8 - 4);
 
-            if (matchOutputLimit > fastOutputLimit) {
-                while (output < fastOutputLimit) {
-                    UnsafeMemory.copyLong(output, source);
-                    source += 8;
-                    output += 8;
+            if (matchOutputLimit > fastOutputLimit - 4) {
+                if (matchOutputLimit > outputLimit - 5) {
+                    throw new ArrayIndexOutOfBoundsException();
+                }
+
+                if (output < fastOutputLimit) {
+                    do {
+                        UnsafeMemory.copyLong(output, source);
+                        source += 8;
+                        output += 8;
+                    }
+                    while (output < fastOutputLimit);
                 }
 
                 while (output < matchOutputLimit) {
                     copyByte(output++, source++);
                 }
-
-                if (output == outputLimit) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
-                    return output;
-                }
+                output = matchOutputLimit; // correction in case we overcopied
+                continue;
             }
 
-            while (output < matchOutputLimit) {
+            do {
                 UnsafeMemory.copyLong(output, source);
                 source += 8;
                 output += 8;
             }
+            while (output < matchOutputLimit);
 
             output = matchOutputLimit; // correction in case we overcopied
         }
@@ -270,34 +295,34 @@ public class Lz4DirectMemoryDecompressor
     /**
      * Reads the variable length integer encoded a the specified offset, and returns this length with the number of bytes read.
      */
-    private static long[] readUncompressedLength(long compressed)
-            throws CorruptionException
-    {
-        int result;
-        {
-            int b = readByte(compressed++);
-            result = b & 0x7f;
-            if ((b & 0x80) != 0) {
-                b = readByte(compressed++);
-                result |= (b & 0x7f) << 7;
-                if ((b & 0x80) != 0) {
-                    b = readByte(compressed++);
-                    result |= (b & 0x7f) << 14;
-                    if ((b & 0x80) != 0) {
-                        b = readByte(compressed++);
-                        result |= (b & 0x7f) << 21;
-                        if ((b & 0x80) != 0) {
-                            b = readByte(compressed++);
-                            result |= (b & 0x7f) << 28;
-                            if ((b & 0x80) != 0) {
-                                throw new CorruptionException("last byte of compressed length int has high bit set");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return new long[] { result, compressed };
-    }
+//    private static long[] readUncompressedLength(long compressed)
+//            throws CorruptionException
+//    {
+//        int result;
+//        {
+//            int b = readByte(compressed++);
+//            result = b & 0x7f;
+//            if ((b & 0x80) != 0) {
+//                b = readByte(compressed++);
+//                result |= (b & 0x7f) << 7;
+//                if ((b & 0x80) != 0) {
+//                    b = readByte(compressed++);
+//                    result |= (b & 0x7f) << 14;
+//                    if ((b & 0x80) != 0) {
+//                        b = readByte(compressed++);
+//                        result |= (b & 0x7f) << 21;
+//                        if ((b & 0x80) != 0) {
+//                            b = readByte(compressed++);
+//                            result |= (b & 0x7f) << 28;
+//                            if ((b & 0x80) != 0) {
+//                                throw new CorruptionException("last byte of compressed length int has high bit set");
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        return new long[] { result, compressed };
+//    }
 
 }
