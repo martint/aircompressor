@@ -2,7 +2,10 @@ package io.airlift.compress;
 
 
 import com.google.common.primitives.Longs;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -11,6 +14,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Charsets.*;
+import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.String.format;
 
 public class Lz4Bench
@@ -20,30 +25,31 @@ public class Lz4Bench
     public static void main(String[] args)
             throws IOException
     {
-        byte[] uncompressed = Files.readAllBytes(Paths.get("testdata/html"));
+        Slice uncompressed = Slices.mapFileReadOnly(new File("testdata/html"));
 
         for (int i = 0; i < 10; ++i) {
             System.out.println("uncompress lz4:    " + toHumanReadableSpeed(benchmarkUncompressLz4(uncompressed, 1000)));
         }
     }
 
-    private static long benchmarkUncompressLz4(byte[] uncompressed, int iterations)
+    private static long benchmarkUncompressLz4(Slice uncompressed, int iterations)
     {
         long[] runs = new long[NUMBER_OF_RUNS];
         for (int run = 0; run < NUMBER_OF_RUNS; ++run) {
             runs[run] = uncompressLz4(uncompressed, iterations);
         }
         long nanos = getMedianValue(runs);
-        return (long) (1.0 * iterations * uncompressed.length / nanosToSeconds(nanos));
+        return (long) (1.0 * iterations * uncompressed.length() / nanosToSeconds(nanos));
     }
 
-    private static long uncompressLz4(byte[] uncompressed, int iterations)
+    private static long uncompressLz4(Slice uncompressed, int iterations)
     {
-        byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length)];
-        int compressedSize = Lz4Compressor.compress(uncompressed, 0, uncompressed.length, compressed, 0);
+        byte[] compressedBytes = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length())];
+        int compressedSize = Lz4Compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
 
+        Slice compressed = Slices.wrappedBuffer(compressedBytes);
         // Read the file and create buffers out side of timing
-        byte[] out = new byte[uncompressed.length];
+        Slice out = Slices.allocate(uncompressed.length());
 
         long start = System.nanoTime();
         while (iterations-- > 0) {
@@ -52,12 +58,12 @@ public class Lz4Bench
         long timeInNanos = System.nanoTime() - start;
 
         // verify results
-        if (!Arrays.equals(uncompressed, out)) {
+        if (!out.equals(uncompressed)) {
             throw new AssertionError(String.format(
                     "Actual   : %s\n" +
                             "Expected : %s",
-                    Arrays.toString(out),
-                    Arrays.toString(uncompressed)));
+                    Arrays.toString(out.getBytes()),
+                    Arrays.toString(uncompressed.getBytes())));
         }
 
         return timeInNanos;

@@ -17,25 +17,6 @@ import static io.airlift.compress.UnsafeMemory.readShort;
 
 public class Lz4DirectMemoryDecompressor
 {
-    private static final Unsafe unsafe;
-
-    static {
-        try {
-            Field field = Unsafe.class.getDeclaredField("theUnsafe");
-            field.setAccessible(true);
-            unsafe = (Unsafe) field.get(null);
-
-            int byteArrayIndexScale = unsafe.arrayIndexScale(byte[].class);
-            if (byteArrayIndexScale != 1) {
-                throw new IllegalStateException("Byte array index scale must be 1, but is " + byteArrayIndexScale);
-            }
-        }
-        catch (Throwable e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
 

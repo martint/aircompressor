@@ -1,23 +1,20 @@
 package io.airlift.compress;
 
-import static io.airlift.compress.SnappyInternalUtils.copyInt;
-import static io.airlift.compress.SnappyInternalUtils.copyLong;
-import static io.airlift.compress.SnappyInternalUtils.copyMemory;
-import static io.airlift.compress.SnappyInternalUtils.loadByte;
-import static io.airlift.compress.SnappyInternalUtils.loadShort;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 
 public class Lz4Decompressor
 {
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
 
-    public static int getUncompressedLength(byte[] compressed, int compressedOffset)
+    public static int getUncompressedLength(Slice compressed, int compressedOffset)
             throws CorruptionException
     {
         return readUncompressedLength(compressed, compressedOffset)[0];
     }
 
-    public static byte[] uncompress(byte[] compressed, int compressedOffset, int compressedSize)
+    public static Slice uncompress(Slice compressed, int compressedOffset, int compressedSize)
             throws CorruptionException
     {
         // Read the uncompressed length from the front of the compressed input
@@ -27,7 +24,7 @@ public class Lz4Decompressor
         compressedSize -= varInt[1];
 
         // allocate the uncompressed buffer
-        byte[] uncompressed = new byte[expectedLength];
+        Slice uncompressed = Slices.allocate(expectedLength);
 
         // Process the entire input
         int uncompressedSize = decompressAllChunks(
@@ -46,7 +43,7 @@ public class Lz4Decompressor
         return uncompressed;
     }
 
-    public static int uncompress(byte[] compressed, int compressedOffset, int compressedSize, byte[] uncompressed, int uncompressedOffset)
+    public static int uncompress(Slice compressed, int compressedOffset, int compressedSize, Slice uncompressed, int uncompressedOffset)
             throws CorruptionException
     {
         // Read the uncompressed length from the front of the compressed input
@@ -55,8 +52,8 @@ public class Lz4Decompressor
         compressedOffset += varInt[1];
         compressedSize -= varInt[1];
 
-        SnappyInternalUtils.checkArgument(expectedLength <= uncompressed.length - uncompressedOffset,
-                "Uncompressed length %s must be less than %s", expectedLength, uncompressed.length - uncompressedOffset);
+        SnappyInternalUtils.checkArgument(expectedLength <= uncompressed.length() - uncompressedOffset,
+                "Uncompressed length %s must be less than %s", expectedLength, uncompressed.length() - uncompressedOffset);
 
         // Process the entire input
         int uncompressedSize = decompressAllChunks(
@@ -76,17 +73,17 @@ public class Lz4Decompressor
     }
 
     private static int decompressAllChunks(
-            final byte[] input,
+            final Slice input,
             final int inputOffset,
             final int inputSize,
-            final byte[] output,
+            final Slice output,
             final int outputOffset)
     {
         int outputIndex = outputOffset;
         int inputIndex = inputOffset;
 
         while (inputIndex < inputOffset + inputSize) {
-            int chunkSize = SnappyInternalUtils.loadInt(input, inputIndex);
+            int chunkSize = input.getInt(inputIndex);
             inputIndex += 4;
 
             outputIndex = decompressChunk(input, inputIndex, chunkSize, output, outputIndex);
@@ -97,10 +94,10 @@ public class Lz4Decompressor
     }
 
     public static int decompressChunk(
-            final byte[] input,
+            final Slice input,
             final int inputOffset,
             final int inputSize,
-            final byte[] output,
+            final Slice output,
             final int outputOffset)
             throws CorruptionException
     {
@@ -109,32 +106,32 @@ public class Lz4Decompressor
 
         int inputLimit = inputOffset + inputSize;
         int fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
-        int fastOutputLimit = output.length - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
+        int fastOutputLimit = output.length() - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
         while (inputIndex < inputLimit) {
-            int token = loadByte(input, inputIndex++);
+            int token = input.getUnsignedByte(inputIndex++);
 
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
             if (literalLength == 0xf) {
-                while (loadByte(input, inputIndex) == 255) {
+                while (input.getUnsignedByte(inputIndex) == 255) {
                     literalLength += 255;
                     inputIndex++;
                 }
-                literalLength += loadByte(input, inputIndex++);
+                literalLength += input.getUnsignedByte(inputIndex++);
             }
 
             // copy literal
             int literalOutputLimit = outputIndex + literalLength;
             if (literalOutputLimit > fastOutputLimit || inputIndex + literalLength > fastInputLimit) {
                 // slow, precise copy
-                copyMemory(input, inputIndex, output, outputIndex, literalLength);
+                output.setBytes(outputIndex, input, inputIndex, literalLength);
                 return literalOutputLimit; //outputIndex + literalLength;
             }
 
             // fast copy. We may overcopy but there's enough room in input and output to not overrun them
             do {
-                copyLong(input, inputIndex, output, outputIndex);
+                output.setLong(outputIndex, input.getLong(inputIndex));
                 inputIndex += 8;
                 outputIndex += 8;
             }
@@ -143,17 +140,17 @@ public class Lz4Decompressor
             outputIndex = literalOutputLimit;
 
             // get offset
-            int offset = loadShort(input, inputIndex);
+            int offset = input.getShort(inputIndex) & 0xFFFF;
             inputIndex += 2;
 
             // get matchlength
             int matchLength = token & 0xf; // bottom-most 4 bits of token
             if (matchLength == 0xf) {
-                while (loadByte(input, inputIndex) == 255) {
+                while (input.getUnsignedByte(inputIndex) == 255) {
                     matchLength += 255;
                     inputIndex++;
                 }
-                matchLength += loadByte(input, inputIndex++);
+                matchLength += input.getUnsignedByte(inputIndex++);
             }
             matchLength += 4; // implicit length from initial 4-byte match in encoder
 
@@ -164,18 +161,18 @@ public class Lz4Decompressor
                 // 8 bytes apart so that we can copy long-at-a-time below
                 int dec1 = DEC_TABLE_1[offset];
 
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
-                output[outputIndex++] = output[sourceIndex++];
+                output.setByte(outputIndex++, output.getByte(sourceIndex++));
+                output.setByte(outputIndex++, output.getByte(sourceIndex++));
+                output.setByte(outputIndex++, output.getByte(sourceIndex++));
+                output.setByte(outputIndex++, output.getByte(sourceIndex++));
                 sourceIndex -= dec1;
 
-                copyInt(output, sourceIndex, output, outputIndex);
+                output.setInt(outputIndex, output.getInt(sourceIndex));
                 outputIndex += 4;
                 sourceIndex -= DEC_TABLE_2[offset];
             }
             else {
-                copyLong(output, sourceIndex, output, outputIndex);
+                output.setLong(outputIndex, output.getLong(sourceIndex));
                 outputIndex += 8;
                 sourceIndex += 8;
             }
@@ -185,22 +182,22 @@ public class Lz4Decompressor
 
             if (matchOutputLimit > fastOutputLimit) {
                 while (outputIndex < fastOutputLimit) {
-                    copyLong(output, sourceIndex, output, outputIndex);
+                    output.setLong(outputIndex, output.getLong(sourceIndex));
                     sourceIndex += 8;
                     outputIndex += 8;
                 }
 
                 while (outputIndex < matchOutputLimit) {
-                    output[outputIndex++] = output[sourceIndex++];
+                    output.setByte(outputIndex++, output.getByte(sourceIndex++));
                 }
 
-                if (outputIndex == output.length) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
+                if (outputIndex == output.length()) { // Check EOF (should never happen, since last 5 bytes are supposed to be literals)
                     return outputIndex;
                 }
             }
 
             while (outputIndex < matchOutputLimit) {
-                copyLong(output, sourceIndex, output, outputIndex);
+                output.setLong(outputIndex, output.getLong(sourceIndex));
                 sourceIndex += 8;
                 outputIndex += 8;
             }
@@ -214,25 +211,25 @@ public class Lz4Decompressor
     /**
      * Reads the variable length integer encoded a the specified offset, and returns this length with the number of bytes read.
      */
-    private static int[] readUncompressedLength(byte[] compressed, int compressedOffset)
+    private static int[] readUncompressedLength(Slice compressed, int compressedOffset)
             throws CorruptionException
     {
         int result;
         int bytesRead = 0;
         {
-            int b = compressed[compressedOffset + bytesRead++] & 0xFF;
+            int b = compressed.getUnsignedByte(compressedOffset + bytesRead++);
             result = b & 0x7f;
             if ((b & 0x80) != 0) {
-                b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                b = compressed.getUnsignedByte(compressedOffset + bytesRead++);
                 result |= (b & 0x7f) << 7;
                 if ((b & 0x80) != 0) {
-                    b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                    b = compressed.getUnsignedByte(compressedOffset + bytesRead++);
                     result |= (b & 0x7f) << 14;
                     if ((b & 0x80) != 0) {
-                        b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                        b = compressed.getUnsignedByte(compressedOffset + bytesRead++);
                         result |= (b & 0x7f) << 21;
                         if ((b & 0x80) != 0) {
-                            b = compressed[compressedOffset + bytesRead++] & 0xFF;
+                            b = compressed.getUnsignedByte(compressedOffset + bytesRead++);
                             result |= (b & 0x7f) << 28;
                             if ((b & 0x80) != 0) {
                                 throw new CorruptionException("last byte of compressed length int has high bit set");

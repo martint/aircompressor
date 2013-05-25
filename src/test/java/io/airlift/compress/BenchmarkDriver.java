@@ -17,13 +17,25 @@
  */
 package io.airlift.compress;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import io.airlift.compress.SnappyBench.TestData;
+<<<<<<< HEAD
+=======
+import io.airlift.compress.slice.Slices;
+import io.airlift.compress.slice.UnsafeSlice;
+>>>>>>> use new Slice
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
+<<<<<<< HEAD
+=======
+import io.airlift.slice.Slice;
+import net.jpountz.lz4.*;
+
+>>>>>>> use new Slice
 public enum BenchmarkDriver
 {
     JAVA_BLOCK
@@ -407,10 +419,11 @@ public enum BenchmarkDriver
                 {
                     // Read the file and create buffers out side of timing
                     byte[] contents = testData.getContents();
-                    byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
-                    int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
+                    byte[] compressedBytes = new byte[Lz4Compressor.maxCompressedLength(contents.length)];
+                    int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressedBytes, 0);
 
-                    byte[] uncompressed = new byte[contents.length];
+                    io.airlift.slice.Slice compressed = io.airlift.slice.Slices.wrappedBuffer(compressedBytes);
+                    io.airlift.slice.Slice uncompressed = io.airlift.slice.Slices.allocate(contents.length);
 
                     long start = System.nanoTime();
                     while (iterations-- > 0) {
@@ -419,11 +432,11 @@ public enum BenchmarkDriver
                     long timeInNanos = System.nanoTime() - start;
 
                     // verify results
-                    if (!Arrays.equals(uncompressed, testData.getContents())) {
+                    if (uncompressed.equals(io.airlift.slice.Slices.wrappedBuffer(testData.getContents()))) {
                         throw new AssertionError(String.format(
                                 "Actual   : %s\n" +
                                         "Expected : %s",
-                                Arrays.toString(uncompressed),
+                                Arrays.toString(uncompressed.getBytes()),
                                 Arrays.toString(testData.getContents())));
                     }
 
@@ -441,7 +454,7 @@ public enum BenchmarkDriver
                     long start = System.nanoTime();
                     while (iterations-- > 0) {
                         int compressedSize = Lz4Compressor.compress(contents, 0, contents.length, compressed, 0);
-                        Lz4Decompressor.uncompress(compressed, 0, compressedSize, uncompressed, 0);
+//                        Lz4Decompressor.uncompress(compressed, 0, compressedSize, uncompressed, 0);
                     }
                     long timeInNanos = System.nanoTime() - start;
 
@@ -503,7 +516,7 @@ public enum BenchmarkDriver
                     long start = System.nanoTime();
                     while (iterations-- > 0) {
                         Lz4.uncompressDirectMemory(compressedSlice, 0, compressedSize, uncompressed, 0);
-                    }
+                     }
                     long timeInNanos = System.nanoTime() - start;
 
                     // verify results

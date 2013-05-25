@@ -10,7 +10,7 @@
 
     <name>aircompressor</name>
 
-    <description>Port of Snappy to Java</description>
+    <description>Port of Snappy and Lz4 to Java</description>
     <url>http://github.com/airlift/aircompressor</url>
 
     <parent>
@@ -29,6 +29,13 @@
         </license>
     </licenses>
 
+<<<<<<< HEAD
+=======
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+>>>>>>> use new Slice
     <scm>
         <connection>scm:git:git://github.com/airlift/aircompressor.git</connection>
         <developerConnection>scm:git:git@github.com:airlift/aircompressor.git</developerConnection>
@@ -53,6 +60,12 @@
     </distributionManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
+            <version>0.2-SNAPSHOT</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-core</artifactId>
