@@ -129,6 +129,15 @@ public class Lz4DirectMemoryDecompressor
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
             if (literalLength == 0xf) {
+
+// this seems to be slower:
+//                int value;
+//                do {
+//                    value = readByte(input++) & 0xFF;
+//                    literalLength += value;
+//                }
+//                while (value == 255);
+
                 while (readByte(input) == 255) {
                     literalLength += 255;
                     input++;
@@ -161,6 +170,14 @@ public class Lz4DirectMemoryDecompressor
             // get matchlength
             int matchLength = token & 0xf; // bottom-most 4 bits of token
             if (matchLength == 0xf) {
+// this seems to be slower:
+//                int value;
+//                do {
+//                    value = readByte(input++) & 0xFF;
+//                    matchLength += value;
+//                }
+//                while (value == 255);
+//
                 while (readByte(input) == 255) {
                     matchLength += 255;
                     input++;
@@ -175,6 +192,32 @@ public class Lz4DirectMemoryDecompressor
                 // copies 8 bytes from sourceIndex to destIndex and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
                 int dec1 = DEC_TABLE_1[offset];
+                int dec2 = DEC_TABLE_2[offset];
+
+// this seems to be slower:
+//                int dec1 = 0;
+//                int dec2 = 0;
+//                switch (offset) {
+//                    case 1:
+//                        dec1 = 3;
+//                        break;
+//                    case 2:
+//                        dec1 = 2;
+//                        break;
+//                    case 3:
+//                        dec1 = 3;
+//                        dec2 = -1;
+//                        break;
+//                    case 5:
+//                        dec2 = 1;
+//                        break;
+//                    case 6:
+//                        dec2 = 2;
+//                        break;
+//                    case 7:
+//                        dec2 = 3;
+//                        break;
+//                }
 
                 copyByte(output++, source++);
                 copyByte(output++, source++);
@@ -184,7 +227,8 @@ public class Lz4DirectMemoryDecompressor
 
                 UnsafeMemory.copyInt(output, source);
                 output += 4;
-                source -= DEC_TABLE_2[offset];
+
+                source -= dec2;
             }
             else {
                 UnsafeMemory.copyLong(output, source);
