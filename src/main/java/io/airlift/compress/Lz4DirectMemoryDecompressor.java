@@ -1,19 +1,31 @@
 package io.airlift.compress;
 
 import io.airlift.compress.slice.UnsafeSlice;
+import sun.misc.Unsafe;
 
-import static io.airlift.compress.UnsafeMemory.copyByte;
-import static io.airlift.compress.UnsafeMemory.outputAddress;
-import static io.airlift.compress.UnsafeMemory.readByte;
-import static io.airlift.compress.UnsafeMemory.readInt;
-import static io.airlift.compress.UnsafeMemory.readShort;
+import java.lang.reflect.Field;
 
 public class Lz4DirectMemoryDecompressor
 {
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
 
-//    public static int getUncompressedLength(UnsafeSlice compressed, int compressedOffset)
+    private static final Unsafe unsafe;
+
+    static {
+        try {
+            Field theUnsafe = Unsafe.class.getDeclaredField("theUnsafe");
+            theUnsafe.setAccessible(true);
+            unsafe = (Unsafe) theUnsafe.get(null);
+            // It seems not all Unsafe implementations implement the following method.
+            new UnsafeMemory().copyMemory(new byte[1], 0, new byte[1], 0, 1);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    //    public static int getUncompressedLength(UnsafeSlice compressed, int compressedOffset)
 //            throws CorruptionException
 //    {
 //        return (int) readUncompressedLength(compressed.getAddress() + compressedOffset)[0];
@@ -52,29 +64,29 @@ public class Lz4DirectMemoryDecompressor
     public static int uncompress(UnsafeSlice compressed, int compressedOffset, int compressedSize, UnsafeSlice uncompressed, int uncompressedOffset)
             throws CorruptionException
     {
-        synchronized (compressed) {
-            synchronized (uncompressed) {
+//        synchronized (compressed) {
+//            synchronized (uncompressed) {
                 long inputAddress = compressed.getAddress() + compressedOffset;
                 int inputLength = compressedSize;
                 long outputAddress = uncompressed.getAddress() + uncompressedOffset;
                 int outputLength = uncompressed.length() - uncompressedOffset;
                 return uncompress(inputAddress, inputLength, outputAddress, outputLength);
-            }
-        }
+//            }
+//        }
     }
 
     public static int uncompress(long inputAddress, int inputLength, long outputAddress, int outputLength)
             throws CorruptionException
     {
-        UnsafeMemory.inputAddress = inputAddress;
-        UnsafeMemory.inputLength = inputLength;
-        UnsafeMemory.outputAddress = outputAddress;
-        UnsafeMemory.outputLength = outputLength;
+//        UnsafeMemory.inputAddress = inputAddress;
+//        UnsafeMemory.inputLength = inputLength;
+//        UnsafeMemory.outputAddress = outputAddress;
+//        UnsafeMemory.outputLength = outputLength;
 
         long inputLimit = inputAddress + inputLength;
         long outputLimit = outputAddress + outputLength;
 
-        int expectedLength = readInt(inputAddress);
+        int expectedLength = unsafe.getInt(inputAddress);
         long input = inputAddress + 4;
 
         SnappyInternalUtils.checkArgument(expectedLength <= outputLength,
@@ -104,7 +116,7 @@ public class Lz4DirectMemoryDecompressor
             long outputLimit)
     {
         while (inputAddress < inputLimit) {
-            int chunkSize = readInt(inputAddress);
+            int chunkSize = unsafe.getInt(inputAddress);
             inputAddress += 4;
 
             outputAddress = decompressChunk(inputAddress, inputAddress + chunkSize, outputAddress, outputLimit);
@@ -115,18 +127,18 @@ public class Lz4DirectMemoryDecompressor
     }
 
     public static long decompressChunk(
-            long input,
+            long inputOffset,
             final long inputLimit,
             long outputOffset,
             final long outputLimit)
             throws CorruptionException
     {
+        long input = inputOffset;
         long output = outputOffset;
-        long fastInputLimit = inputLimit - 8; // maximum offset in input buffer from which it's safe to read long-at-a-time
         long fastOutputLimit = outputLimit - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
         while (true) {
-            int token = readByte(input++);
+            int token = unsafe.getByte(input++) & 0xFF;
 
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
@@ -142,7 +154,7 @@ public class Lz4DirectMemoryDecompressor
 
                 int value = 255;
                 while (input < inputLimit && value == 255) {
-                    value = readByte(input++);
+                    value = unsafe.getByte(input++) & 0xFF;
                     literalLength += value;
                 }
             }
@@ -151,10 +163,10 @@ public class Lz4DirectMemoryDecompressor
             long literalOutputLimit = output + literalLength;
             if (literalOutputLimit > (fastOutputLimit + 4) || input + literalLength > inputLimit - (2+1+5)) {
                 if (literalOutputLimit > outputLimit || input + literalLength != inputLimit) {
-                    throw new ArrayIndexOutOfBoundsException();
+                    return (int) -(input - inputOffset) - 1;
                 }
                 // slow, precise copy
-                UnsafeMemory.copyMemory(input, output, literalLength);
+                unsafe.copyMemory(input, output, literalLength);
                 input += literalLength;
                 output += literalLength;
                 break;
@@ -162,7 +174,7 @@ public class Lz4DirectMemoryDecompressor
 
             // fast copy. We may overcopy but there's enough room in input and output to not overrun them
             do {
-                UnsafeMemory.copyLong(output, input);
+                unsafe.putLong(output, unsafe.getLong(input));
                 input += 8;
                 output += 8;
             }
@@ -171,11 +183,11 @@ public class Lz4DirectMemoryDecompressor
             output = literalOutputLimit;
 
             // get offset
-            int offset = readShort(input) & 0xFFFF;
+            int offset = unsafe.getShort(input) & 0xFFFF;
             input += 2;
 
             if (output - offset < outputOffset) {
-                throw new ArrayIndexOutOfBoundsException();
+                return (int) -(input - inputOffset) - 1;
             }
 
             // get matchlength
@@ -190,7 +202,7 @@ public class Lz4DirectMemoryDecompressor
 //                while (value == 255);
 //
                 while (input < inputLimit - (5 + 1)) {
-                    int value = readByte(input++);
+                    int value = unsafe.getByte(input++) & 0xFF;
                     matchLength += value;
                     if (value == 255) {
                         continue;
@@ -238,19 +250,19 @@ public class Lz4DirectMemoryDecompressor
 //                        break;
 //                }
 
-                copyByte(output++, source++);
-                copyByte(output++, source++);
-                copyByte(output++, source++);
-                copyByte(output++, source++);
+                unsafe.putByte(output++, unsafe.getByte(source++));
+                unsafe.putByte(output++, unsafe.getByte(source++));
+                unsafe.putByte(output++, unsafe.getByte(source++));
+                unsafe.putByte(output++, unsafe.getByte(source++));
                 source -= dec1;
 
-                UnsafeMemory.copyInt(output, source);
+                unsafe.putInt(output, unsafe.getInt(source));
                 output += 4;
 
                 source -= dec2;
             }
             else {
-                UnsafeMemory.copyLong(output, source);
+                unsafe.putLong(output, unsafe.getLong(source));
                 source += 8;
                 output += 8;
             }
@@ -260,12 +272,12 @@ public class Lz4DirectMemoryDecompressor
 
             if (matchOutputLimit > fastOutputLimit - 4) {
                 if (matchOutputLimit > outputLimit - 5) {
-                    throw new ArrayIndexOutOfBoundsException();
+                    return (int) -(input - inputOffset) - 1;
                 }
 
                 if (output < fastOutputLimit) {
                     do {
-                        UnsafeMemory.copyLong(output, source);
+                        unsafe.putLong(output, unsafe.getLong(source));
                         source += 8;
                         output += 8;
                     }
@@ -273,14 +285,14 @@ public class Lz4DirectMemoryDecompressor
                 }
 
                 while (output < matchOutputLimit) {
-                    copyByte(output++, source++);
+                    unsafe.putByte(output++, unsafe.getByte(source++));
                 }
                 output = matchOutputLimit; // correction in case we overcopied
                 continue;
             }
 
             do {
-                UnsafeMemory.copyLong(output, source);
+                unsafe.putLong(output, unsafe.getLong(source));
                 source += 8;
                 output += 8;
             }
