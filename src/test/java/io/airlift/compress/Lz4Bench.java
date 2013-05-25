@@ -1,6 +1,7 @@
 package io.airlift.compress;
 
 
+import com.google.common.base.Charsets;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,6 +28,7 @@ public class Lz4Bench
     {
         Slice uncompressed = Slices.mapFileReadOnly(new File("testdata/html"));
 
+//        Slice uncompressed = Slices.copiedBuffer("h", Charsets.UTF_8);
         for (int i = 0; i < 10; ++i) {
             System.out.println("uncompress lz4:    " + toHumanReadableSpeed(benchmarkUncompressLz4(uncompressed, 1000)));
         }
