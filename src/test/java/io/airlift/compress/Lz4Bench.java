@@ -5,6 +5,10 @@ import com.google.common.base.Charsets;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
+import net.jpountz.lz4.LZ4JavaSafeCompressor;
+import net.jpountz.lz4.LZ4Uncompressor;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,6 +52,12 @@ public class Lz4Bench
     {
         byte[] compressedBytes = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length())];
         int compressedSize = Lz4Compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
+//        LZ4Compressor compressor = LZ4Factory.nativeInstance().fastCompressor();
+//        LZ4Uncompressor decompressor = LZ4Factory.nativeInstance().uncompressor();
+//
+//        byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length)];
+//        int compressedSize = compressor.compress(uncompressed, 0, uncompressed.length, compressed, 0, compressed.length);
+//
 
         Slice compressed = Slices.wrappedBuffer(compressedBytes);
         // Read the file and create buffers out side of timing
@@ -56,6 +66,7 @@ public class Lz4Bench
         long start = System.nanoTime();
         while (iterations-- > 0) {
             Lz4Decompressor.uncompress(compressed, 0, compressedSize, out, 0);
+//            decompressor.uncompress(compressed, 0, out, 0, uncompressed.length);
         }
         long timeInNanos = System.nanoTime() - start;
 
