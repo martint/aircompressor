@@ -1,6 +1,7 @@
 package io.airlift.compress;
 
 import io.airlift.compress.slice.UnsafeSlice;
+import io.airlift.slice.SizeOf;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -9,6 +10,9 @@ public class Lz4DirectMemoryDecompressor
 {
     private final static int[] DEC_TABLE_1 = { 0, 3, 2, 3, 0, 0, 0, 0 };
     private final static int[] DEC_TABLE_2 = { 0, 0, 0, -1, 0, 1, 2, 3 };
+
+    private final static int MIN_MATCH = 4;
+    private final static int LAST_LITERAL_SIZE = 5;
 
     private static final Unsafe unsafe;
 
@@ -135,14 +139,14 @@ public class Lz4DirectMemoryDecompressor
     {
         long input = inputOffset;
         long output = outputOffset;
-        long fastOutputLimit = outputLimit - 8; // maximum offset in output buffer to which it's safe to write long-at-a-time
+        long fastOutputLimit = outputLimit - SizeOf.SIZE_OF_LONG; // maximum offset in output buffer to which it's safe to write long-at-a-time
 
         while (true) {
             int token = unsafe.getByte(input++) & 0xFF;
 
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
-            if (literalLength == 0xf) {
+            if (literalLength == 0xF) {
 
 // this seems to be slower:
 //                int value;
@@ -161,7 +165,7 @@ public class Lz4DirectMemoryDecompressor
 
             // copy literal
             long literalOutputLimit = output + literalLength;
-            if (literalOutputLimit > (fastOutputLimit + 4) || input + literalLength > inputLimit - (2+1+5)) {
+            if (literalOutputLimit > (fastOutputLimit + MIN_MATCH) || input + literalLength > inputLimit - (2 + 1 + LAST_LITERAL_SIZE)) {
                 if (literalOutputLimit > outputLimit || input + literalLength != inputLimit) {
                     return (int) -(input - inputOffset) - 1;
                 }
