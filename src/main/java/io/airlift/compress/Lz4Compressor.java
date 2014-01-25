@@ -9,10 +9,23 @@ import static io.airlift.compress.SnappyInternalUtils.loadLong;
 import static io.airlift.compress.SnappyInternalUtils.loadShort;
 import static io.airlift.compress.SnappyInternalUtils.writeInt;
 import static io.airlift.compress.SnappyInternalUtils.writeShort;
+import static net.jpountz.util.UnsafeUtils.writeLong;
 
 public class Lz4Compressor
 {
     private final static ControlException EXCEPTION = new ControlException();
+
+    private static final int MAGIC_NUMBER = 0x184D2204;
+
+    private static final int STREAM_DESCRIPTOR_FLAGS_UPPER =
+            1 << 6 | // version
+                    1 << 5 | // independent blocks
+                    0 << 4 | // use checksum
+                    1 << 3 ; // has stream size
+
+    private static final int STREAM_DESCRIPTOR_FLAGS_LOWER = 4 << 4; // 64 KB blocks
+
+
 
     private final static int COMPRESSION_LEVEL = 12;
     private final static int NOT_COMPRESSIBLE_CONFIRMATION = 5;
@@ -41,7 +54,10 @@ public class Lz4Compressor
 
     public static int maxCompressedLength(int sourceLength)
     {
-        return (sourceLength + (sourceLength / 255) + 16);
+        return (sourceLength + (sourceLength / 255) + 16)
+                + 4 // magic
+                + 2 // flags
+                + 8; // uncompressed size
     }
 
     public static int compress(
@@ -51,10 +67,16 @@ public class Lz4Compressor
             final byte[] compressed,
             final int compressedOffset)
     {
-        // First write the uncompressed size to the output as a variable length int
-//        int compressedIndex = writeUncompressedLength(compressed, compressedOffset, uncompressedLength);
-        writeInt(compressed, compressedOffset, uncompressedLength);
-        int compressedIndex = compressedOffset + 4; // size of int
+        int compressedIndex = compressedOffset;
+
+        writeInt(compressed, compressedIndex, MAGIC_NUMBER);
+        compressedIndex += 4;
+
+        compressed[compressedIndex++] = STREAM_DESCRIPTOR_FLAGS_UPPER;
+        compressed[compressedIndex++] = STREAM_DESCRIPTOR_FLAGS_LOWER;
+
+        writeLong(compressed, compressedIndex, uncompressedLength);
+        compressedIndex += 8;
 
         int hashTableSize = TABLESIZE;
         BufferRecycler recycler = BufferRecycler.instance();
@@ -65,17 +87,18 @@ public class Lz4Compressor
             Arrays.fill(table, (short) 0);
 
             int sizeIndex = compressedIndex;
-            int begin = compressedIndex + 4;
-            compressedIndex = compressFragment(
+            int begin = compressedIndex;
+//            int begin = compressedIndex + 4;
+            compressedIndex = compressBlock(
                     uncompressed,
                     uncompressedOffset + read,
                     Math.min(uncompressedLength - read, BLOCK_SIZE),
                     compressed,
-                    begin, // 4 bytes for block size header
+                    begin,
                     table);
 
 //            SnappyInternalUtils.writeInt(compressed, sizeIndex, Math.min(BLOCK_SIZE, uncompressedLength - read));
-            SnappyInternalUtils.writeInt(compressed, sizeIndex, compressedIndex - begin);
+//            SnappyInternalUtils.writeInt(compressed, sizeIndex, compressedIndex - begin);
         }
 
         recycler.releaseEncodingHash(table);
@@ -83,7 +106,7 @@ public class Lz4Compressor
         return compressedIndex - compressedOffset;
     }
 
-    private static int compressFragment(
+    private static int compressBlock(
             final byte[] input,
             final int inputOffset,
             final int inputLength,

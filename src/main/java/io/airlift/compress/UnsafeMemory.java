@@ -166,6 +166,13 @@ class UnsafeMemory
         unsafe.putInt(data, BYTE_ARRAY_OFFSET + index, value);
     }
 
+    @Override
+    public void writeLong(byte[] data, int index, long value)
+    {
+        assert index >= 0;
+        assert index + 8 <= data.length;
+        unsafe.putLong(data, BYTE_ARRAY_OFFSET + index, value);
+    }
 
     @Override
     public void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)

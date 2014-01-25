@@ -26,7 +26,7 @@ import java.lang.ref.SoftReference;
  *
  * @author tatu
  */
-class BufferRecycler
+public class BufferRecycler
 {
     private final static int MIN_ENCODING_BUFFER = 4000;
 

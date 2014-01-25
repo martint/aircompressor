@@ -63,7 +63,7 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <version>0.2-SNAPSHOT</version>
+            <version>0.3</version>
         </dependency>
 
         <dependency>
@@ -116,9 +116,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>lz4-java</groupId>
-            <artifactId>lz4-java</artifactId>
-            <version>0.2</version>
+            <groupId>net.jpountz.lz4</groupId>
+            <artifactId>lz4</artifactId>
+            <version>1.2.0</version>
         </dependency>
     </dependencies>
 

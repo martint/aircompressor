@@ -99,6 +99,11 @@ final class SnappyInternalUtils
         memory.writeInt(data, index, value);
     }
 
+    public static void writeByte(byte[] data, int index, byte value)
+    {
+        memory.writeByte(data, index, value);
+    }
+
 
     static void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)
     {
