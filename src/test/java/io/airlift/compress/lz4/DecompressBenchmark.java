@@ -54,7 +54,7 @@ public class DecompressBenchmark
     {
         Slice compressed = fixture.getCompressed();
         counters.addCompressed(compressed.length());
-        counters.addUncompressed(fixture.getData().length());
+        counters.addUncompressed(fixture.getUncompressed().length);
         return decompressor.uncompress(compressed, 0, compressed.length(), fixture.getOutput(), 0);
     }
 
@@ -63,7 +63,7 @@ public class DecompressBenchmark
     {
         byte[] compressed = fixture.getCompressed();
         counters.addCompressed(compressed.length);
-        counters.addUncompressed(fixture.getBytes().length);
+        counters.addUncompressed(fixture.getUncompressed().length);
         return jpountzJniDecompressor.decompress(compressed, 0, fixture.getOutput(), 0, fixture.getOutput().length);
     }
 
@@ -72,7 +72,7 @@ public class DecompressBenchmark
     {
         byte[] compressed = fixture.getCompressed();
         counters.addCompressed(compressed.length);
-        counters.addUncompressed(fixture.getBytes().length);
+        counters.addUncompressed(fixture.getUncompressed().length);
         return jpountzJavaDecompressor.decompress(compressed, 0, fixture.getOutput(), 0, fixture.getOutput().length);
     }
 
@@ -82,8 +82,7 @@ public class DecompressBenchmark
     {
         byte[] compressed = fixture.getCompressed();
         counters.addCompressed(compressed.length);
-        counters.addUncompressed(fixture.getBytes().length);
-
+        counters.addUncompressed(fixture.getUncompressed().length);
         return org.xerial.snappy.Snappy.uncompress(compressed, 0, compressed.length, fixture.getOutput(), 0);
     }
 
@@ -93,16 +92,13 @@ public class DecompressBenchmark
     {
         byte[] compressed = fixture.getCompressed();
         counters.addCompressed(compressed.length);
-        counters.addUncompressed(fixture.getBytes().length);
-
+        counters.addUncompressed(fixture.getUncompressed().length);
         return Snappy.uncompress(compressed, 0, compressed.length, fixture.getOutput(), 0);
     }
 
     public static void main(String[] args)
             throws RunnerException
     {
-//        "alice29.txt", "html", "asyoulik.txt"
-
         Set<BenchmarkRecord> benchmarks = MicroBenchmarkList.defaultList().find(OutputFormatFactory.createFormatInstance(false), DecompressBenchmark.class.getName() + ".*", ImmutableList.<String>of());
 
         for (SnappyBench.TestData dataset : SnappyBench.TestData.values()) {
@@ -116,10 +112,10 @@ public class DecompressBenchmark
 //                        .include(".*" + DecompressBenchmark.class.getSimpleName() + ".*")
                         .include(benchmark.getUsername())
                         .forks(1)
-//                        .warmupIterations(5)
-//                        .measurementIterations(10)
-                        .warmupTime(TimeValue.seconds(5))
-                        .measurementTime(TimeValue.seconds(10))
+                        .warmupIterations(5)
+                        .warmupTime(TimeValue.seconds(1))
+                        .measurementIterations(10)
+                        .measurementTime(TimeValue.seconds(1))
                         .jvmArgs("-Dtestdata=testdata/" + dataset.getFileName())
                         .build();
 

@@ -14,8 +14,6 @@
 package io.airlift.compress.lz4;
 
 import io.airlift.compress.Snappy;
-import net.jpountz.lz4.LZ4Compressor;
-import net.jpountz.lz4.LZ4Factory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.TearDown;
@@ -29,18 +27,15 @@ public class SnappyBytesFixture
 {
     private byte[] output;
     private byte[] compressed;
-    private byte[] uncompressed;
 
     @Setup
     public void setup()
     {
-        uncompressed = getData().getBytes();
-
-        compressed = new byte[Snappy.maxCompressedLength(uncompressed.length)];
-        int compressedLength = Snappy.compress(uncompressed, 0, uncompressed.length, compressed, 0);
+        compressed = new byte[Snappy.maxCompressedLength(getUncompressed().length)];
+        int compressedLength = Snappy.compress(getUncompressed(), 0, getUncompressed().length, compressed, 0);
 
         compressed = Arrays.copyOf(compressed, compressedLength);
-        output = new byte[getData().length()];
+        output = new byte[getUncompressed().length];
     }
 
     public byte[] getOutput()
@@ -53,14 +48,9 @@ public class SnappyBytesFixture
         return compressed;
     }
 
-    public byte[] getBytes()
-    {
-        return uncompressed;
-    }
-
     @TearDown(Level.Iteration)
     public void check()
     {
-        assertEquals(output, getData().getBytes());
+        assertEquals(output, getUncompressed());
     }
 }

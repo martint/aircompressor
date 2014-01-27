@@ -27,18 +27,16 @@ import java.io.IOException;
 @State(Scope.Thread)
 public abstract class Fixture
 {
-    private Slice data;
+    private byte[] data;
 
     @Setup
     public void load()
             throws IOException
     {
-        String filename = System.getProperty("testdata");
-        data = Slices.wrappedBuffer(Files.toByteArray(new File(filename)));
-//        data = Slices.mapFileReadOnly(new File("testdata", dataset));
+        data = Files.toByteArray(new File(System.getProperty("testdata")));
     }
 
-    public Slice getData()
+    public byte[] getUncompressed()
     {
         return data;
     }

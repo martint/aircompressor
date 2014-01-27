@@ -28,20 +28,18 @@ public class Lz4BytesFixture
 {
     private byte[] output;
     private byte[] compressed;
-    private byte[] uncompressed;
 
     @Setup
     public void setup()
     {
         LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
-        int maxCompressedLength = compressor.maxCompressedLength(getData().length());
+        int maxCompressedLength = compressor.maxCompressedLength(getUncompressed().length);
 
         byte[] compressedBytes = new byte[maxCompressedLength];
-        int compressedLength = compressor.compress(getData().getBytes(), 0, getData().length(), compressedBytes, 0);
+        int compressedLength = compressor.compress(getUncompressed(), 0, getUncompressed().length, compressedBytes, 0);
 
         compressed = Arrays.copyOf(compressedBytes, compressedLength);
-        uncompressed = getData().getBytes();
-        output = new byte[getData().length()];
+        output = new byte[getUncompressed().length];
     }
 
     public byte[] getOutput()
@@ -54,14 +52,9 @@ public class Lz4BytesFixture
         return compressed;
     }
 
-    public byte[] getBytes()
-    {
-        return uncompressed;
-    }
-
     @TearDown(Level.Iteration)
     public void check()
     {
-        assertEquals(output, getData().getBytes());
+        assertEquals(output, getUncompressed());
     }
 }

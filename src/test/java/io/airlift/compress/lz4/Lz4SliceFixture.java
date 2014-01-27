@@ -28,14 +28,14 @@ import static org.testng.Assert.assertEquals;
 public class Lz4SliceFixture
     extends Fixture
 {
-    private Slice output;
     private Slice compressed;
+    private Slice output;
 
     @Setup
     public void setup()
     {
-        compressed = compress(getData());
-        output = Slices.allocate(getData().length());
+        compressed = compress(getUncompressed());
+        output = Slices.allocate(getUncompressed().length);
     }
 
     public Slice getOutput()
@@ -51,19 +51,17 @@ public class Lz4SliceFixture
     @TearDown(Level.Iteration)
     public void check()
     {
-        assertEquals(output.getBytes(), getData().getBytes());
+        assertEquals(output.getBytes(), getUncompressed());
     }
 
-    private Slice compress(Slice uncompressed)
+    private Slice compress(byte[] uncompressed)
     {
         LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
-        int maxCompressedLength = compressor.maxCompressedLength(uncompressed.length());
+        int maxCompressedLength = compressor.maxCompressedLength(uncompressed.length);
 
         byte[] compressedBytes = new byte[maxCompressedLength];
-        int compressedLength = compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
+        int compressedLength = compressor.compress(uncompressed, 0, uncompressed.length, compressedBytes, 0);
 
         return Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, compressedLength));
     }
-
-
 }
