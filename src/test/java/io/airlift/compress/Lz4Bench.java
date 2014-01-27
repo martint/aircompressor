@@ -1,28 +1,22 @@
 package io.airlift.compress;
 
-
-import com.google.common.base.Charsets;
 import com.google.common.primitives.Longs;
-import io.airlift.compress.slice.UnsafeSlice;
+import io.airlift.compress.lz4.Lz4SafeDecompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
-import net.jpountz.lz4.LZ4JavaSafeCompressor;
-import net.jpountz.lz4.LZ4Uncompressor;
+import net.jpountz.lz4.LZ4FastDecompressor;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Charsets.*;
-import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 public class Lz4Bench
 {
@@ -34,12 +28,13 @@ public class Lz4Bench
         Slice uncompressed = Slices.mapFileReadOnly(new File("testdata/html"));
 
 //        Slice uncompressed = Slices.copiedBuffer("h", Charsets.UTF_8);
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 100; ++i) {
             System.out.println("uncompress lz4:    " + toHumanReadableSpeed(benchmarkUncompressLz4(uncompressed, 1000)));
         }
     }
 
     private static long benchmarkUncompressLz4(Slice uncompressed, int iterations)
+            throws IOException
     {
         long[] runs = new long[NUMBER_OF_RUNS];
         for (int run = 0; run < NUMBER_OF_RUNS; ++run) {
@@ -49,36 +44,38 @@ public class Lz4Bench
         return (long) (1.0 * iterations * uncompressed.length() / nanosToSeconds(nanos));
     }
 
-    private static long uncompressLz4(Slice uncompressed, int iterations)
+    private static Slice compress(Slice uncompressed)
+            throws IOException
     {
-        byte[] compressedBytes = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length())];
-        int compressedSize = Lz4Compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
-//        LZ4Compressor compressor = LZ4Factory.nativeInstance().fastCompressor();
-//        LZ4Uncompressor decompressor = LZ4Factory.nativeInstance().uncompressor();
-//
-//        byte[] compressed = new byte[Lz4Compressor.maxCompressedLength(uncompressed.length)];
-//        int compressedSize = compressor.compress(uncompressed, 0, uncompressed.length, compressed, 0, compressed.length);
-//
+        LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
 
-        Slice compressed = Slices.allocate(compressedBytes.length);
-        compressed.setBytes(0, compressedBytes);
-//        Slice compressed = Slices.wrappedBuffer(compressedBytes);
-        // Read the file and create buffers out side of timing
+        int maxCompressedLength = compressor.maxCompressedLength(uncompressed.length());
+
+        byte[] compressedBytes = new byte[maxCompressedLength];
+        int compressedLength = compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
+
+        return Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, compressedLength));
+    }
+
+    private static long uncompressLz4(Slice uncompressed, int iterations)
+            throws IOException
+    {
+        Slice compressed = compress(uncompressed);
+        byte[] compressedBytes = compressed.getBytes();
+
         Slice out = Slices.allocate(uncompressed.length());
+        byte[] outBytes = new byte[uncompressed.length()];
+        LZ4FastDecompressor decompressor = LZ4Factory.fastestInstance().fastDecompressor();
 
-        UnsafeSlice compressedUnsafe = UnsafeSlice.allocate(compressedBytes.length);
-        compressedUnsafe.setBytes(0, compressedBytes, 0, compressedBytes.length);
-
-        UnsafeSlice uncompressedUnsafe = UnsafeSlice.allocate(uncompressed.length());
         long start = System.nanoTime();
         while (iterations-- > 0) {
-            Lz4DirectMemoryDecompressor.uncompress(compressedUnsafe, 0, compressedSize, uncompressedUnsafe, 0);
-//            Lz4Decompressor.uncompress(compressed, 0, compressedSize, out, 0);
-//            decompressor.uncompress(compressed, 0, out, 0, uncompressed.length);
+//            new Lz4SafeDecompressor().uncompress(compressed, 0, compressed.length(), out, 0);
+            decompressor.decompress(compressedBytes, outBytes);
         }
         long timeInNanos = System.nanoTime() - start;
 
         // verify results
+        assertEquals(outBytes, uncompressed.getBytes());
 //        if (!out.equals(uncompressed)) {
 //            throw new AssertionError(String.format(
 //                    "Actual   : %s\n" +

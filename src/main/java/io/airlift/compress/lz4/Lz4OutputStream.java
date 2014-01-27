@@ -2,9 +2,7 @@ package io.airlift.compress.lz4;
 
 import io.airlift.compress.BufferRecycler;
 import io.airlift.compress.Lz4Compressor;
-import io.airlift.compress.Snappy;
 
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;

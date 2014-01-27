@@ -39,7 +39,5 @@ interface Memory
 
     long loadLong(byte[] data, int index);
 
-    void writeLong(byte[] data, int index, long value);
-
     void copyMemory(byte[] input, int inputIndex, byte[] output, int outputIndex, int length);
 }

@@ -1,7 +1,7 @@
 package io.airlift.compress;
 
-import io.airlift.compress.slice.UnsafeSlice;
 import io.airlift.slice.SizeOf;
+import io.airlift.slice.Slice;
 import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
@@ -65,7 +65,7 @@ public class Lz4DirectMemoryDecompressor
         throw new UnsupportedOperationException("not yet implemented");
     }
 
-    public static int uncompress(UnsafeSlice compressed, int compressedOffset, int compressedSize, UnsafeSlice uncompressed, int uncompressedOffset)
+    public static int uncompress(Slice compressed, int compressedOffset, int compressedSize, Slice uncompressed, int uncompressedOffset)
             throws CorruptionException
     {
 //        synchronized (compressed) {

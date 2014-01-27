@@ -67,8 +67,9 @@ public class SnappyBench
         snappyBench.warmUp();
 
         // Easy to use individual tests
-        BenchmarkDriver oldDriver = LZ4_OTHER;
-        BenchmarkDriver newDriver = LZ4_DIRECT_MEMORY;
+        BenchmarkDriver oldDriver = BenchmarkDriver.AIRLIFT_LZ4;
+        BenchmarkDriver newDriver = BenchmarkDriver.AIRLIFT_LZ4;
+//        BenchmarkDriver newDriver = JPOUNTZ_JNI;
         for (int i = 0; i < 100; i++) {
 //            snappyBench.runCompress(TestData.txt1, oldDriver, newDriver);
 //            snappyBench.runCompress(TestData.txt2, oldDriver, newDriver);
@@ -109,13 +110,13 @@ public class SnappyBench
 //            snappyBench.runUncompress(TestData.cp);
 //        }
 
-        snappyBench.runCompress("Block Compress", JNI_BLOCK, JAVA_BLOCK);
-        snappyBench.runUncompress("Block Uncompress", JNI_BLOCK, JAVA_BLOCK);
-        snappyBench.runRoundTrip("Block Round Trip", JNI_BLOCK, JAVA_BLOCK);
+//        snappyBench.runCompress("Block Compress", JNI_BLOCK, JAVA_BLOCK);
+//        snappyBench.runUncompress("Block Uncompress", JNI_BLOCK, JAVA_BLOCK);
+//        snappyBench.runRoundTrip("Block Round Trip", JNI_BLOCK, JAVA_BLOCK);
 
-        snappyBench.runCompress("Stream Compress (no checksum)", JNI_STREAM, JAVA_STREAM);
-        snappyBench.runUncompress("Stream Uncompress (no checksum)", JNI_STREAM, JAVA_STREAM);
-        snappyBench.runRoundTrip("Stream RoundTrip (no checksum)", JNI_STREAM, JAVA_STREAM);
+//        snappyBench.runCompress("Stream Compress (no checksum)", JNI_STREAM, JAVA_STREAM);
+//        snappyBench.runUncompress("Stream Uncompress (no checksum)", JNI_STREAM, JAVA_STREAM);
+//        snappyBench.runRoundTrip("Stream RoundTrip (no checksum)", JNI_STREAM, JAVA_STREAM);
     }
 
     public void verify()

@@ -17,7 +17,7 @@
  */
 package io.airlift.compress;
 
-final class SnappyInternalUtils
+public final class SnappyInternalUtils
 {
     private SnappyInternalUtils()
     {
@@ -99,10 +99,10 @@ final class SnappyInternalUtils
         memory.writeInt(data, index, value);
     }
 
-    public static void writeByte(byte[] data, int index, byte value)
-    {
-        memory.writeByte(data, index, value);
-    }
+//    public static void writeByte(byte[] data, int index, byte value)
+//    {
+//        memory.writeByte(data, index, value);
+//    }
 
 
     static void copyInt(byte[] src, int srcIndex, byte[] dest, int destIndex)
@@ -127,7 +127,7 @@ final class SnappyInternalUtils
 
     //
     // Copied from Guava Preconditions
-    static <T> T checkNotNull(T reference, String errorMessageTemplate, Object... errorMessageArgs)
+    public static <T> T checkNotNull(T reference, String errorMessageTemplate, Object... errorMessageArgs)
     {
         if (reference == null) {
             // If either of these parameters is null, the right thing happens anyway
@@ -136,14 +136,14 @@ final class SnappyInternalUtils
         return reference;
     }
 
-    static void checkArgument(boolean expression, String errorMessageTemplate, Object... errorMessageArgs)
+    public static void checkArgument(boolean expression, String errorMessageTemplate, Object... errorMessageArgs)
     {
         if (!expression) {
             throw new IllegalArgumentException(String.format(errorMessageTemplate, errorMessageArgs));
         }
     }
 
-    static void checkPositionIndexes(int start, int end, int size)
+    public static void checkPositionIndexes(int start, int end, int size)
     {
         // Carefully optimized for execution by hotspot (explanatory comment above)
         if (start < 0 || end < start || end > size) {
