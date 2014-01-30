@@ -13,31 +13,13 @@
  */
 package io.airlift.compress.lz4;
 
-import com.google.common.io.Files;
-import io.airlift.compress.SnappyBench;
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-
-import java.io.File;
-import java.io.IOException;
-
-@State(Scope.Thread)
-public abstract class Fixture
+public class MalformedInputException
+    extends RuntimeException
 {
-    private byte[] data;
+    private final int inputOffset;
 
-    @Setup
-    public void load()
-            throws IOException
+    public MalformedInputException(int inputOffset)
     {
-        data = Files.toByteArray(new File(System.getProperty("testdata")));
-    }
-
-    public byte[] getUncompressed()
-    {
-        return data;
+        this.inputOffset = inputOffset;
     }
 }

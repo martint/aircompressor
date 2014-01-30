@@ -17,9 +17,11 @@ import io.airlift.compress.CorruptionException;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 
+import java.nio.charset.*;
+
 import static io.airlift.compress.lz4.UnsafeUtil.UNSAFE;
 
-public class Lz4SafeDecompressor
+public class Lz4SafeDecompressor2
 {
     private final static int[] DEC_TABLE_1 = {0, 3, 2, 3, 0, 0, 0, 0};
     private final static int[] DEC_TABLE_2 = {0, 0, 0, -1, 0, 1, 2, 3};
@@ -87,7 +89,7 @@ public class Lz4SafeDecompressor
             long literalOutputLimit = output + literalLength;
             if (literalOutputLimit > (fastOutputLimit + MIN_MATCH) || input + literalLength > inputLimit - (2 + 1 + LAST_LITERAL_SIZE)) {
                 if (literalOutputLimit > outputLimit || input + literalLength != inputLimit) {
-                    return (int) -(input - inputAddress) - 1;
+                    throw new MalformedInputException((int) (input - inputAddress));
                 }
 
                 // slow, precise copy
@@ -111,8 +113,9 @@ public class Lz4SafeDecompressor
             int offset = UNSAFE.getShort(inputBase, input) & 0xFFFF;
             input += SIZE_OF_SHORT;
 
-            if (output - offset < outputAddress) {
-                return (int) -(input - inputAddress) - 1;
+            long matchAddress = output - offset;
+            if (matchAddress < outputAddress) {
+                throw new MalformedInputException((int) (input - inputAddress));
             }
 
             // get matchlength
@@ -134,94 +137,61 @@ public class Lz4SafeDecompressor
                     }
                     break;
                 }
-//                while (readByte(input) == 255) {
-//                    matchLength += 255;
-//                    input++;
-//                }
-//                matchLength += readByte(input++);
             }
             matchLength += MIN_MATCH; // implicit length from initial 4-byte match in encoder
 
+            long matchOutputLimit = output + matchLength;
+
             // copy repeated sequence
-            long source = output - offset;
             if (offset < SIZE_OF_LONG) {
-                // copies 8 bytes from sourceIndex to destIndex and leaves the pointers more than
+                // copies 8 bytes from matchAddress to output and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
                 int dec1 = DEC_TABLE_1[offset];
                 int dec2 = DEC_TABLE_2[offset];
 
-// this seems to be slower:
-//                int dec1 = 0;
-//                int dec2 = 0;
-//                switch (offset) {
-//                    case 1:
-//                        dec1 = 3;
-//                        break;
-//                    case 2:
-//                        dec1 = 2;
-//                        break;
-//                    case 3:
-//                        dec1 = 3;
-//                        dec2 = -1;
-//                        break;
-//                    case 5:
-//                        dec2 = 1;
-//                        break;
-//                    case 6:
-//                        dec2 = 2;
-//                        break;
-//                    case 7:
-//                        dec2 = 3;
-//                        break;
-//                }
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                matchAddress -= dec1;
 
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                source -= dec1;
-
-                UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, source));
+                UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, matchAddress));
                 output += SIZE_OF_INT;
 
-                source -= dec2;
+                matchAddress -= dec2;
             }
             else {
-                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                source += SIZE_OF_LONG;
+                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                matchAddress += SIZE_OF_LONG;
                 output += SIZE_OF_LONG;
             }
 
-            // subtract SIZE_OF_LONG for the bytes we copied above
-            long matchOutputLimit = output + matchLength - SIZE_OF_LONG;
-
-            if (matchOutputLimit > fastOutputLimit - MIN_MATCH) {
+            if (matchOutputLimit > fastOutputLimit) {
                 if (matchOutputLimit > outputLimit - LAST_LITERAL_SIZE) {
-                    return (int) -(input - inputAddress) - 1;
+                    throw new MalformedInputException((int) (input - inputAddress));
                 }
 
                 if (output < fastOutputLimit) {
                     do {
-                        UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                        source += SIZE_OF_LONG;
+                        UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                        matchAddress += SIZE_OF_LONG;
                         output += SIZE_OF_LONG;
                     }
                     while (output < fastOutputLimit);
                 }
 
                 while (output < matchOutputLimit) {
-                    UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
+                    UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
                 }
-                output = matchOutputLimit; // correction in case we overcopied
-                continue;
             }
-
-            do {
-                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                source += SIZE_OF_LONG;
-                output += SIZE_OF_LONG;
+            else {
+                do {
+                    UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                    matchAddress += SIZE_OF_LONG;
+                    output += SIZE_OF_LONG;
+                }
+                while (output < matchOutputLimit);
             }
-            while (output < matchOutputLimit);
 
             output = matchOutputLimit; // correction in case we overcopied
         }

@@ -14,6 +14,12 @@
 package io.airlift.compress;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.compress.lz4.Lz4SafeDecompressor;
+import io.airlift.compress.lz4.Lz4SafeDecompressor2;
+import io.airlift.slice.Slice;
+import net.jpountz.lz4.LZ4Factory;
+import net.jpountz.lz4.LZ4FastDecompressor;
+import net.jpountz.lz4.LZ4SafeDecompressor;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.GenerateMicroBenchmark;
 import org.openjdk.jmh.annotations.Measurement;
@@ -39,13 +45,57 @@ import java.util.concurrent.TimeUnit;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Fork(5)
+@Fork(20)
 @Warmup(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 10, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 5, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 public class DecompressBenchmark
 {
+    private Lz4SafeDecompressor decompressor = new Lz4SafeDecompressor();
+    private Lz4SafeDecompressor2 decompressor2 = new Lz4SafeDecompressor2();
+    private LZ4FastDecompressor jpountzJniDecompressor = LZ4Factory.nativeInstance().fastDecompressor();
+    private LZ4SafeDecompressor jpountzJavaDecompressor = LZ4Factory.unsafeInstance().safeDecompressor();
+
     @GenerateMicroBenchmark
-    public int xerial(SnappyBytesFixture fixture, Counters counters)
+    public int airliftLz4(Lz4SliceFixture fixture, Counters counters)
+    {
+        Slice compressed = fixture.getCompressed();
+        counters.recordCompressed(compressed.length());
+        counters.recordUncompressed(fixture.getUncompressed().length);
+
+        return decompressor.uncompress(compressed, 0, compressed.length(), fixture.getOutput(), 0);
+    }
+
+    @GenerateMicroBenchmark
+    public int airliftLz4_2(Lz4SliceFixture fixture, Counters counters)
+    {
+        Slice compressed = fixture.getCompressed();
+        counters.recordCompressed(compressed.length());
+        counters.recordUncompressed(fixture.getUncompressed().length);
+
+        return decompressor2.uncompress(compressed, 0, compressed.length(), fixture.getOutput(), 0);
+    }
+
+//    @GenerateMicroBenchmark
+    public int jpountzJniLz4(Lz4BytesFixture fixture, Counters counters)
+    {
+        byte[] compressed = fixture.getCompressed();
+        counters.recordCompressed(compressed.length);
+        counters.recordUncompressed(fixture.getUncompressed().length);
+
+        return jpountzJniDecompressor.decompress(compressed, 0, fixture.getOutput(), 0, fixture.getOutput().length);
+    }
+
+    @GenerateMicroBenchmark
+    public int jpountzJavaLz4(Lz4BytesFixture fixture, Counters counters)
+    {
+        byte[] compressed = fixture.getCompressed();
+        counters.recordCompressed(compressed.length);
+        counters.recordUncompressed(fixture.getUncompressed().length);
+        return jpountzJavaDecompressor.decompress(compressed, 0, compressed.length, fixture.getOutput(), 0, fixture.getOutput().length);
+    }
+
+//    @GenerateMicroBenchmark
+    public int xerialSnappy(SnappyBytesFixture fixture, Counters counters)
             throws IOException
     {
         byte[] compressed = fixture.getCompressed();
@@ -55,8 +105,8 @@ public class DecompressBenchmark
         return org.xerial.snappy.Snappy.uncompress(compressed, 0, compressed.length, fixture.getOutput(), 0);
     }
 
-    @GenerateMicroBenchmark
-    public int airlift(SnappyBytesFixture fixture, Counters counters)
+//    @GenerateMicroBenchmark
+    public int airliftSnappy(SnappyBytesFixture fixture, Counters counters)
             throws IOException
     {
         byte[] compressed = fixture.getCompressed();
@@ -73,6 +123,7 @@ public class DecompressBenchmark
                 .find(OutputFormatFactory.createFormatInstance(System.out, VerboseMode.SILENT), DecompressBenchmark.class.getName() + ".*", ImmutableList.<String>of());
 
         for (SnappyBench.TestData dataset : SnappyBench.TestData.values()) {
+//        for (SnappyBench.TestData dataset : ImmutableList.of(SnappyBench.TestData.jpg)) {//SnappyBench.TestData.values()) {
             System.out.printf("%-8s (size = %d)\n", dataset.name(), dataset.getContents().length);
             for (BenchmarkRecord benchmark : benchmarks) {
                 Options opt = new OptionsBuilder()

@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.airlift.compress.lz4;
+package io.airlift.compress;
 
+import io.airlift.compress.Fixture;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
 import org.openjdk.jmh.annotations.Level;

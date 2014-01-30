@@ -11,9 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.airlift.compress.lz4;
+package io.airlift.compress;
 
-import io.airlift.compress.Snappy;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.TearDown;
@@ -22,28 +25,25 @@ import java.util.Arrays;
 
 import static org.testng.Assert.assertEquals;
 
-public class SnappyBytesFixture
+public class Lz4SliceFixture
     extends Fixture
 {
-    private byte[] output;
-    private byte[] compressed;
+    private Slice compressed;
+    private Slice output;
 
     @Setup
     public void setup()
     {
-        compressed = new byte[Snappy.maxCompressedLength(getUncompressed().length)];
-        int compressedLength = Snappy.compress(getUncompressed(), 0, getUncompressed().length, compressed, 0);
-
-        compressed = Arrays.copyOf(compressed, compressedLength);
-        output = new byte[getUncompressed().length];
+        compressed = compress(getUncompressed());
+        output = Slices.allocate(getUncompressed().length);
     }
 
-    public byte[] getOutput()
+    public Slice getOutput()
     {
         return output;
     }
 
-    public byte[] getCompressed()
+    public Slice getCompressed()
     {
         return compressed;
     }
@@ -51,6 +51,17 @@ public class SnappyBytesFixture
     @TearDown(Level.Iteration)
     public void check()
     {
-        assertEquals(output, getUncompressed());
+        assertEquals(output.getBytes(), getUncompressed());
+    }
+
+    private Slice compress(byte[] uncompressed)
+    {
+        LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
+        int maxCompressedLength = compressor.maxCompressedLength(uncompressed.length);
+
+        byte[] compressedBytes = new byte[maxCompressedLength];
+        int compressedLength = compressor.compress(uncompressed, 0, uncompressed.length, compressedBytes, 0);
+
+        return Slices.wrappedBuffer(Arrays.copyOf(compressedBytes, compressedLength));
     }
 }
