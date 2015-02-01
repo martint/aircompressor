@@ -13,34 +13,22 @@
  */
 package io.airlift.compress;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.compress.lz4.Lz4SafeDecompressor;
 import io.airlift.compress.lz4.Lz4SafeDecompressor2;
 import io.airlift.slice.Slice;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
 import net.jpountz.lz4.LZ4SafeDecompressor;
+import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.GenerateMicroBenchmark;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.logic.results.Result;
-import org.openjdk.jmh.logic.results.RunResult;
-import org.openjdk.jmh.output.format.OutputFormatFactory;
-import org.openjdk.jmh.runner.BenchmarkRecord;
-import org.openjdk.jmh.runner.MicroBenchmarkList;
-import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
-import org.openjdk.jmh.runner.options.Options;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
-import org.openjdk.jmh.util.internal.Statistics;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 @State(Scope.Thread)
@@ -55,7 +43,7 @@ public class DecompressBenchmark
     private LZ4FastDecompressor jpountzJniDecompressor = LZ4Factory.nativeInstance().fastDecompressor();
     private LZ4SafeDecompressor jpountzJavaDecompressor = LZ4Factory.unsafeInstance().safeDecompressor();
 
-    @GenerateMicroBenchmark
+    @Benchmark
     public int airliftLz4(Lz4SliceFixture fixture, Counters counters)
     {
         Slice compressed = fixture.getCompressed();
@@ -65,7 +53,7 @@ public class DecompressBenchmark
         return decompressor.uncompress(compressed, 0, compressed.length(), fixture.getOutput(), 0);
     }
 
-    @GenerateMicroBenchmark
+    @Benchmark
     public int airliftLz4_2(Lz4SliceFixture fixture, Counters counters)
     {
         Slice compressed = fixture.getCompressed();
@@ -85,7 +73,7 @@ public class DecompressBenchmark
         return jpountzJniDecompressor.decompress(compressed, 0, fixture.getOutput(), 0, fixture.getOutput().length);
     }
 
-    @GenerateMicroBenchmark
+    @Benchmark
     public int jpountzJavaLz4(Lz4BytesFixture fixture, Counters counters)
     {
         byte[] compressed = fixture.getCompressed();
@@ -119,37 +107,37 @@ public class DecompressBenchmark
     public static void main(String[] args)
             throws RunnerException
     {
-        Set<BenchmarkRecord> benchmarks = MicroBenchmarkList.defaultList()
-                .find(OutputFormatFactory.createFormatInstance(System.out, VerboseMode.SILENT), DecompressBenchmark.class.getName() + ".*", ImmutableList.<String>of());
-
-        for (SnappyBench.TestData dataset : SnappyBench.TestData.values()) {
-//        for (SnappyBench.TestData dataset : ImmutableList.of(SnappyBench.TestData.jpg)) {//SnappyBench.TestData.values()) {
-            System.out.printf("%-8s (size = %d)\n", dataset.name(), dataset.getContents().length);
-            for (BenchmarkRecord benchmark : benchmarks) {
-                Options opt = new OptionsBuilder()
-                        .verbosity(VerboseMode.SILENT)
-                        .include(benchmark.getUsername())
-                        .jvmArgs("-Dtestdata=testdata/" + dataset.getFileName())
-                        .build();
-
-                RunResult result = new Runner(opt).runSingle();
-                Result uncompressedBytes = result.getSecondaryResults().get("getUncompressedBytes");
-
-                Statistics stats = uncompressedBytes.getStatistics();
-                System.out.printf("  %-14s %10s ± %10s (%5.2f%%) (N = %d, \u03B1 = 99.9%%)\n",
-                        getBenchmarkName(benchmark),
-                        Util.toHumanReadableSpeed((long) stats.getMean()),
-                        Util.toHumanReadableSpeed((long) stats.getMeanErrorAt(0.999)),
-                        stats.getMeanErrorAt(0.999) * 100 / stats.getMean(),
-                        stats.getN());
-            }
-            System.out.println();
-        }
+//        Set<BenchmarkRecord> benchmarks = MicroBenchmarkList.defaultList()
+//                .find(OutputFormatFactory.createFormatInstance(System.out, VerboseMode.SILENT), DecompressBenchmark.class.getName() + ".*", ImmutableList.<String>of());
+//
+//        for (SnappyBench.TestData dataset : SnappyBench.TestData.values()) {
+////        for (SnappyBench.TestData dataset : ImmutableList.of(SnappyBench.TestData.jpg)) {//SnappyBench.TestData.values()) {
+//            System.out.printf("%-8s (size = %d)\n", dataset.name(), dataset.getContents().length);
+//            for (BenchmarkRecord benchmark : benchmarks) {
+//                Options opt = new OptionsBuilder()
+//                        .verbosity(VerboseMode.SILENT)
+//                        .include(benchmark.getUsername())
+//                        .jvmArgs("-Dtestdata=testdata/" + dataset.getFileName())
+//                        .build();
+//
+//                RunResult result = new Runner(opt).runSingle();
+//                Result uncompressedBytes = result.getSecondaryResults().get("getUncompressedBytes");
+//
+//                Statistics stats = uncompressedBytes.getStatistics();
+//                System.out.printf("  %-14s %10s ± %10s (%5.2f%%) (N = %d, \u03B1 = 99.9%%)\n",
+//                        getBenchmarkName(benchmark),
+//                        Util.toHumanReadableSpeed((long) stats.getMean()),
+//                        Util.toHumanReadableSpeed((long) stats.getMeanErrorAt(0.999)),
+//                        stats.getMeanErrorAt(0.999) * 100 / stats.getMean(),
+//                        stats.getN());
+//            }
+//            System.out.println();
+//        }
     }
 
-    private static String getBenchmarkName(BenchmarkRecord benchmark)
-    {
-        String name = benchmark.getUsername();
-        return name.substring(name.lastIndexOf('.') + 1);
-    }
+//    private static String getBenchmarkName(BenchmarkRecord benchmark)
+//    {
+//        String name = benchmark.getUsername();
+//        return name.substring(name.lastIndexOf('.') + 1);
+//    }
 }

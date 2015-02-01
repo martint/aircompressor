@@ -13,18 +13,15 @@
  */
 package io.airlift.compress;
 
-import io.airlift.compress.lz4.Lz4SafeDecompressor;
+import io.airlift.compress.lz4.Lz4SafeDecompressor2;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.Assert;
-import org.testng.annotations.Test;
-
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class TestLz4
@@ -36,7 +33,7 @@ public class TestLz4
         Slice compressed = getCompressedData();
 
         Slice decompressedActual = Slices.allocate(getUncompressedData().length());
-        int written = new Lz4SafeDecompressor().uncompress(compressed, 0, compressed.length(), decompressedActual, 0);
+        int written = new Lz4SafeDecompressor2().uncompress(compressed, 0, compressed.length(), decompressedActual, 0);
 
         if (!decompressedActual.equals(getUncompressedData())) {
             throw new AssertionError(String.format(

@@ -85,7 +85,7 @@ public class Lz4SafeDecompressor
 
             // copy literal
             long literalOutputLimit = output + literalLength;
-            if (literalOutputLimit > (fastOutputLimit + MIN_MATCH) || input + literalLength > inputLimit - (2 + 1 + LAST_LITERAL_SIZE)) {
+            if (literalOutputLimit > (fastOutputLimit - MIN_MATCH) || input + literalLength > inputLimit - (2 + 1 + LAST_LITERAL_SIZE)) {
                 if (literalOutputLimit > outputLimit || input + literalLength != inputLimit) {
                     return (int) -(input - inputAddress) - 1;
                 }
@@ -143,7 +143,7 @@ public class Lz4SafeDecompressor
             matchLength += MIN_MATCH; // implicit length from initial 4-byte match in encoder
 
             // copy repeated sequence
-            long source = output - offset;
+            long matchAddress = output - offset;
             if (offset < SIZE_OF_LONG) {
                 // copies 8 bytes from sourceIndex to destIndex and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
@@ -175,20 +175,20 @@ public class Lz4SafeDecompressor
 //                        break;
 //                }
 
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
-                source -= dec1;
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
+                matchAddress -= dec1;
 
-                UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, source));
+                UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, matchAddress));
                 output += SIZE_OF_INT;
 
-                source -= dec2;
+                matchAddress -= dec2;
             }
             else {
-                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                source += SIZE_OF_LONG;
+                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                matchAddress += SIZE_OF_LONG;
                 output += SIZE_OF_LONG;
             }
 
@@ -202,23 +202,23 @@ public class Lz4SafeDecompressor
 
                 if (output < fastOutputLimit) {
                     do {
-                        UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                        source += SIZE_OF_LONG;
+                        UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                        matchAddress += SIZE_OF_LONG;
                         output += SIZE_OF_LONG;
                     }
                     while (output < fastOutputLimit);
                 }
 
                 while (output < matchOutputLimit) {
-                    UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, source++));
+                    UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
                 }
                 output = matchOutputLimit; // correction in case we overcopied
                 continue;
             }
 
             do {
-                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, source));
-                source += SIZE_OF_LONG;
+                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                matchAddress += SIZE_OF_LONG;
                 output += SIZE_OF_LONG;
             }
             while (output < matchOutputLimit);
