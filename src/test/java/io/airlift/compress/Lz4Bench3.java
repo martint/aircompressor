@@ -13,13 +13,11 @@
  */
 package io.airlift.compress;
 
-import io.airlift.compress.lz4.Lz4SafeDecompressor;
-import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.compress.lz4.Lz4CompressorNew;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import net.jpountz.lz4.LZ4Compressor;
 import net.jpountz.lz4.LZ4Factory;
-import net.jpountz.lz4.LZ4SafeDecompressor;
 import org.openjdk.jmh.annotations.AuxCounters;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -39,7 +37,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
@@ -47,91 +44,52 @@ import static java.lang.String.format;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Measurement(iterations = 10)
-@Warmup(iterations = 5)
-@Fork(6)
-public class Lz4Bench2
+@Measurement(iterations = 30)
+@Warmup(iterations = 10)
+@Fork(10)
+public class Lz4Bench3
 {
     private Slice compressedSlice;
     private Slice uncompressedSlice;
-    private byte[] compressedBytes;
+    private Lz4CompressorNew compressor;
+    private LZ4Compressor jpountz;
     private byte[] uncompressedBytes;
-
-    private Lz4SafeDecompressor decompressor;
-    private Lz4Decompressor decompressor2;
-    private LZ4SafeDecompressor jpountzDecompressor;
-    private LZ4SafeDecompressor jpountzJniDecompressor;
+    private byte[] compressedBytes;
 
     @Setup
     public void prepare()
             throws IOException
     {
-        LZ4Compressor compressor = LZ4Factory.fastestInstance().fastCompressor();
+        uncompressedSlice = getUncompressedData();
+        uncompressedBytes = uncompressedSlice.getBytes();
+        int maxCompressedLength = Lz4CompressorNew.maxCompressedLength(uncompressedSlice.length());
+        compressedSlice = Slices.allocate(maxCompressedLength);
+        compressedBytes = new byte[compressedSlice.length()];
 
-        Slice uncompressed = getUncompressedData();
-        int maxCompressedLength = compressor.maxCompressedLength(uncompressed.length());
-
-        byte[] compressedBytes = new byte[maxCompressedLength];
-        int compressedLength = compressor.compress(uncompressed.getBytes(), 0, uncompressed.length(), compressedBytes, 0);
-
-        this.compressedBytes = Arrays.copyOf(compressedBytes, compressedLength);
-        compressedSlice = Slices.wrappedBuffer(this.compressedBytes);
-
-        this.uncompressedBytes = uncompressed.getBytes();
-        uncompressedSlice = Slices.allocate(getUncompressedData().length());
-        decompressor = new Lz4SafeDecompressor();
-        decompressor2 = new Lz4Decompressor();
-
-        jpountzDecompressor = LZ4Factory.fastestJavaInstance().safeDecompressor();
-        jpountzJniDecompressor = LZ4Factory.fastestInstance().safeDecompressor();
-
-        decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
-        if (!uncompressed.equals(uncompressedSlice)) {
-            throw new IllegalStateException("broken decompressor");
-        }
-
-        decompressor2.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
-        if (!uncompressed.equals(uncompressedSlice)) {
-            throw new IllegalStateException("broken decompressor");
-        }
+        compressor = new Lz4CompressorNew();
+        jpountz = LZ4Factory.fastestInstance().fastCompressor();
     }
 
     private Slice getUncompressedData()
             throws IOException
     {
-        return Slices.mapFileReadOnly(new File("testdata/html"));
+        return Slices.copyOf(Slices.mapFileReadOnly(new File("testdata/html")));
     }
 
     @Benchmark
     public int airlift2(BytesCounter counter)
     {
-        int written = decompressor2.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
-        counter.add(uncompressedBytes.length);
-        return written;
-    }
-
-    //    @Benchmark
-    public int airlift(BytesCounter counter)
-    {
-        int written = decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
-        counter.add(uncompressedBytes.length);
+        int written = compressor.compress(uncompressedSlice, 0, uncompressedSlice.length(), compressedSlice, 0);
+        counter.add(uncompressedSlice.length());
         return written;
     }
 
     @Benchmark
-    public int jpountzUnsafe(BytesCounter counter)
+    public int jpountz(BytesCounter counter)
     {
-        int read = jpountzDecompressor.decompress(compressedBytes, 0, compressedBytes.length, uncompressedBytes, 0, uncompressedBytes.length);
-        counter.add(uncompressedBytes.length);
-        return read;
-    }
-
-    @Benchmark
-    public int jpountzJNI(BytesCounter counter)
-    {
-        int read = jpountzJniDecompressor.decompress(compressedBytes, 0, compressedBytes.length, uncompressedBytes, 0, uncompressedBytes.length);
-        counter.add(uncompressedBytes.length);
-        return read;
+        int written = jpountz.compress(uncompressedBytes, 0, uncompressedSlice.length(), compressedBytes, 0);
+        counter.add(uncompressedSlice.length());
+        return written;
     }
 
     @AuxCounters
@@ -162,7 +120,7 @@ public class Lz4Bench2
     {
         Options opt = new OptionsBuilder()
 //                .outputFormat(OutputFormatType.Silent)
-                .include(".*" + Lz4Bench2.class.getSimpleName() + ".*")
+                .include(".*" + Lz4Bench3.class.getSimpleName() + ".*")
 //                .forks(1)
 //                .warmupIterations(5)
 //                .measurementIterations(10)

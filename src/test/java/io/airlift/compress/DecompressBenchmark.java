@@ -14,7 +14,7 @@
 package io.airlift.compress;
 
 import io.airlift.compress.lz4.Lz4SafeDecompressor;
-import io.airlift.compress.lz4.Lz4SafeDecompressor2;
+import io.airlift.compress.lz4.Lz4Decompressor;
 import io.airlift.slice.Slice;
 import net.jpountz.lz4.LZ4Factory;
 import net.jpountz.lz4.LZ4FastDecompressor;
@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 public class DecompressBenchmark
 {
     private Lz4SafeDecompressor decompressor = new Lz4SafeDecompressor();
-    private Lz4SafeDecompressor2 decompressor2 = new Lz4SafeDecompressor2();
+    private Lz4Decompressor decompressor2 = new Lz4Decompressor();
     private LZ4FastDecompressor jpountzJniDecompressor = LZ4Factory.nativeInstance().fastDecompressor();
     private LZ4SafeDecompressor jpountzJavaDecompressor = LZ4Factory.unsafeInstance().safeDecompressor();
 
