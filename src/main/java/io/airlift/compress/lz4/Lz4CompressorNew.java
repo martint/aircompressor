@@ -56,7 +56,7 @@ public class Lz4CompressorNew
 
     private static int hash(int value)
     {
-        return (int) ((value * 2654435761L) & 0xFFFFFFFFL) >>> HASH_SHIFT;
+        return ((int) (value * 2654435761L)) >>> HASH_SHIFT;
     }
 
     public static int maxCompressedLength(int sourceLength)
@@ -134,7 +134,7 @@ public class Lz4CompressorNew
                 // put position on hash
                 table[hash] = (int) (input - inputAddress);
             }
-            while (matchIndex + MAX_DISTANCE < input || UNSAFE.getInt(inputBase, matchIndex) != UNSAFE.getInt(inputBase, input));
+            while (UNSAFE.getInt(inputBase, matchIndex) != UNSAFE.getInt(inputBase, input) || matchIndex + MAX_DISTANCE < input);
 
             // catch up
             while (input > anchor && (matchIndex > inputAddress) && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, matchIndex - 1)) {

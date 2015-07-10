@@ -44,9 +44,9 @@ import static java.lang.String.format;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Measurement(iterations = 30)
-@Warmup(iterations = 10)
-@Fork(10)
+@Measurement(iterations = 10)
+@Warmup(iterations = 5)
+@Fork(1)
 public class Lz4Bench3
 {
     private Slice compressedSlice;

@@ -13,8 +13,8 @@
  */
 package io.airlift.compress;
 
-import io.airlift.compress.lz4.Lz4SafeDecompressor;
 import io.airlift.compress.lz4.Lz4Decompressor;
+import io.airlift.compress.lz4.Lz4SafeDecompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import net.jpountz.lz4.LZ4Compressor;
@@ -49,16 +49,16 @@ import static java.lang.String.format;
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Measurement(iterations = 10)
 @Warmup(iterations = 5)
-@Fork(6)
-public class Lz4Bench2
+@Fork(1)
+public class Lz4DecompressorBenchmark
 {
     private Slice compressedSlice;
     private Slice uncompressedSlice;
     private byte[] compressedBytes;
     private byte[] uncompressedBytes;
 
-    private Lz4SafeDecompressor decompressor;
-    private Lz4Decompressor decompressor2;
+    private Lz4SafeDecompressor safeDecompressor;
+    private Lz4Decompressor decompressor;
     private LZ4SafeDecompressor jpountzDecompressor;
     private LZ4SafeDecompressor jpountzJniDecompressor;
 
@@ -79,18 +79,18 @@ public class Lz4Bench2
 
         this.uncompressedBytes = uncompressed.getBytes();
         uncompressedSlice = Slices.allocate(getUncompressedData().length());
-        decompressor = new Lz4SafeDecompressor();
-        decompressor2 = new Lz4Decompressor();
+        safeDecompressor = new Lz4SafeDecompressor();
+        decompressor = new Lz4Decompressor();
 
         jpountzDecompressor = LZ4Factory.fastestJavaInstance().safeDecompressor();
         jpountzJniDecompressor = LZ4Factory.fastestInstance().safeDecompressor();
 
-        decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
+        safeDecompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
         if (!uncompressed.equals(uncompressedSlice)) {
             throw new IllegalStateException("broken decompressor");
         }
 
-        decompressor2.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
+        decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
         if (!uncompressed.equals(uncompressedSlice)) {
             throw new IllegalStateException("broken decompressor");
         }
@@ -103,17 +103,17 @@ public class Lz4Bench2
     }
 
     @Benchmark
-    public int airlift2(BytesCounter counter)
+    public int airlift(BytesCounter counter)
     {
-        int written = decompressor2.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
+        int written = decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
         counter.add(uncompressedBytes.length);
         return written;
     }
 
-    //    @Benchmark
-    public int airlift(BytesCounter counter)
+    @Benchmark
+    public int airliftSafe(BytesCounter counter)
     {
-        int written = decompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
+        int written = safeDecompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
         counter.add(uncompressedBytes.length);
         return written;
     }
@@ -162,7 +162,7 @@ public class Lz4Bench2
     {
         Options opt = new OptionsBuilder()
 //                .outputFormat(OutputFormatType.Silent)
-                .include(".*" + Lz4Bench2.class.getSimpleName() + ".*")
+                .include(".*" + Lz4DecompressorBenchmark.class.getSimpleName() + ".*")
 //                .forks(1)
 //                .warmupIterations(5)
 //                .measurementIterations(10)
