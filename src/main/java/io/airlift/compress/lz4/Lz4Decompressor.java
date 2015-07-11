@@ -108,7 +108,7 @@ public class Lz4Decompressor
                 throw new MalformedInputException((int) (input - inputAddress));
             }
 
-            // get matchlength
+            // compute match length
             int matchLength = token & 0xF; // bottom-most 4 bits of token
             if (matchLength == 0xF) {
                 int value;
@@ -154,29 +154,24 @@ public class Lz4Decompressor
                     throw new MalformedInputException((int) (input - inputAddress));
                 }
 
-                if (output < fastOutputLimit) {
-                    do {
-                        UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
-                        matchAddress += SIZE_OF_LONG;
-                        output += SIZE_OF_LONG;
-                    }
-                    while (output < fastOutputLimit);
+                while (output < fastOutputLimit) {
+                    UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                    matchAddress += SIZE_OF_LONG;
+                    output += SIZE_OF_LONG;
                 }
 
                 while (output < matchOutputLimit) {
                     UNSAFE.putByte(outputBase, output++, UNSAFE.getByte(outputBase, matchAddress++));
                 }
-
-                output = matchOutputLimit; // correction in case we overcopied
-                continue;
             }
-
-            do {
-                UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
-                matchAddress += SIZE_OF_LONG;
-                output += SIZE_OF_LONG;
+            else {
+                do {
+                    UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));
+                    matchAddress += SIZE_OF_LONG;
+                    output += SIZE_OF_LONG;
+                }
+                while (output < matchOutputLimit);
             }
-            while (output < matchOutputLimit);
 
             output = matchOutputLimit; // correction in case we overcopied
         }
