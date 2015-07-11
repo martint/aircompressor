@@ -84,7 +84,7 @@ public class Lz4Bench3
         return written;
     }
 
-    @Benchmark
+//    @Benchmark
     public int jpountz(BytesCounter counter)
     {
         int written = jpountz.compress(uncompressedBytes, 0, uncompressedSlice.length(), compressedBytes, 0);

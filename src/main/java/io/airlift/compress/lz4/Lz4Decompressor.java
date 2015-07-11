@@ -33,16 +33,16 @@ public class Lz4Decompressor
 
     public int uncompress(Slice compressed, int compressedOffset, int compressedSize, Slice uncompressed, int uncompressedOffset)
     {
-//        synchronized (compressed) {
-//            synchronized (uncompressed) {
+        synchronized (compressed) {
+            synchronized (uncompressed) {
                 return uncompress(compressed.getBase(),
                         compressed.getAddress() + compressedOffset,
                         compressedSize,
                         uncompressed.getBase(),
                         uncompressed.getAddress() + uncompressedOffset,
                         uncompressed.length() - uncompressedOffset);
-//            }
-//        }
+            }
+        }
     }
 
     private int uncompress(
@@ -61,6 +61,8 @@ public class Lz4Decompressor
         long input = inputAddress;
         long output = outputAddress;
 
+        // TODO: handle outputLength == 0
+
         while (true) {
             final int token = UNSAFE.getByte(inputBase, input++) & 0xFF;
 
@@ -68,10 +70,15 @@ public class Lz4Decompressor
             int literalLength = token >>> 4; // top-most 4 bits of token
             if (literalLength == 0xF) {
                 int value = 255;
+
+                // TODO: input < inputLimit - 15 && value == 255
                 while (input < inputLimit && value == 255) {
                     value = UNSAFE.getByte(inputBase, input++) & 0xFF;
                     literalLength += value;
                 }
+
+                // TODO: handle overflow: (output + length < output)
+                // TODO: handle overflow: (input + length < input)
             }
 
             // copy literal
@@ -120,6 +127,7 @@ public class Lz4Decompressor
                     matchLength += value;
                 }
                 while (value == 255);
+                // TODO: handle overflow: (output + length < output)
             }
             matchLength += MIN_MATCH; // implicit length from initial 4-byte match in encoder
 
@@ -130,14 +138,12 @@ public class Lz4Decompressor
                 // copies 8 bytes from matchAddress to output and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
 
-                int increment = DEC_32_TABLE[offset];
-
                 UNSAFE.putByte(outputBase, output, UNSAFE.getByte(outputBase, matchAddress));
                 UNSAFE.putByte(outputBase, output + 1, UNSAFE.getByte(outputBase, matchAddress + 1));
                 UNSAFE.putByte(outputBase, output + 2, UNSAFE.getByte(outputBase, matchAddress + 2));
                 UNSAFE.putByte(outputBase, output + 3, UNSAFE.getByte(outputBase, matchAddress + 3));
-                matchAddress += increment;
                 output += SIZE_OF_INT;
+                matchAddress += DEC_32_TABLE[offset];
 
                 UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, matchAddress));
                 output += SIZE_OF_INT;

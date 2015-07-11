@@ -118,7 +118,7 @@ public class Lz4DecompressorBenchmark
         return written;
     }
 
-    @Benchmark
+//    @Benchmark
     public int jpountzUnsafe(BytesCounter counter)
     {
         int read = jpountzDecompressor.decompress(compressedBytes, 0, compressedBytes.length, uncompressedBytes, 0, uncompressedBytes.length);
@@ -126,7 +126,7 @@ public class Lz4DecompressorBenchmark
         return read;
     }
 
-    @Benchmark
+//    @Benchmark
     public int jpountzJNI(BytesCounter counter)
     {
         int read = jpountzJniDecompressor.decompress(compressedBytes, 0, compressedBytes.length, uncompressedBytes, 0, uncompressedBytes.length);
