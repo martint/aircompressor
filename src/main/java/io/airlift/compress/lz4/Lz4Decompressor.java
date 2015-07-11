@@ -61,24 +61,18 @@ public class Lz4Decompressor
         long input = inputAddress;
         long output = outputAddress;
 
-        // TODO: handle outputLength == 0
-
         while (true) {
             final int token = UNSAFE.getByte(inputBase, input++) & 0xFF;
 
             // decode literal length
             int literalLength = token >>> 4; // top-most 4 bits of token
             if (literalLength == 0xF) {
-                int value = 255;
 
-                // TODO: input < inputLimit - 15 && value == 255
+                int value = 255;
                 while (input < inputLimit && value == 255) {
                     value = UNSAFE.getByte(inputBase, input++) & 0xFF;
                     literalLength += value;
                 }
-
-                // TODO: handle overflow: (output + length < output)
-                // TODO: handle overflow: (input + length < input)
             }
 
             // copy literal
@@ -127,7 +121,6 @@ public class Lz4Decompressor
                     matchLength += value;
                 }
                 while (value == 255);
-                // TODO: handle overflow: (output + length < output)
             }
             matchLength += MIN_MATCH; // implicit length from initial 4-byte match in encoder
 
@@ -135,19 +128,20 @@ public class Lz4Decompressor
 
             // copy repeated sequence
             if (offset < SIZE_OF_LONG) {
-                // copies 8 bytes from matchAddress to output and leaves the pointers more than
                 // 8 bytes apart so that we can copy long-at-a-time below
+                int increment32 = DEC_32_TABLE[offset];
+                int decrement64 = DEC_64_TABLE[offset];
 
                 UNSAFE.putByte(outputBase, output, UNSAFE.getByte(outputBase, matchAddress));
                 UNSAFE.putByte(outputBase, output + 1, UNSAFE.getByte(outputBase, matchAddress + 1));
                 UNSAFE.putByte(outputBase, output + 2, UNSAFE.getByte(outputBase, matchAddress + 2));
                 UNSAFE.putByte(outputBase, output + 3, UNSAFE.getByte(outputBase, matchAddress + 3));
                 output += SIZE_OF_INT;
-                matchAddress += DEC_32_TABLE[offset];
+                matchAddress += increment32;
 
                 UNSAFE.putInt(outputBase, output, UNSAFE.getInt(outputBase, matchAddress));
                 output += SIZE_OF_INT;
-                matchAddress -= DEC_64_TABLE[offset];
+                matchAddress -= decrement64;
             }
             else {
                 UNSAFE.putLong(outputBase, output, UNSAFE.getLong(outputBase, matchAddress));

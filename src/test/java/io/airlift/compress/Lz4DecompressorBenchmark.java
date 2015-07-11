@@ -47,7 +47,7 @@ import static java.lang.String.format;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Measurement(iterations = 10)
+@Measurement(iterations = 30)
 @Warmup(iterations = 5)
 @Fork(1)
 public class Lz4DecompressorBenchmark
@@ -99,7 +99,7 @@ public class Lz4DecompressorBenchmark
     private Slice getUncompressedData()
             throws IOException
     {
-        return Slices.mapFileReadOnly(new File("testdata/html"));
+        return Slices.mapFileReadOnly(new File("testdata/html_x_4"));
     }
 
     @Benchmark
@@ -110,7 +110,7 @@ public class Lz4DecompressorBenchmark
         return written;
     }
 
-    @Benchmark
+//    @Benchmark
     public int airliftSafe(BytesCounter counter)
     {
         int written = safeDecompressor.uncompress(compressedSlice, 0, compressedSlice.length(), uncompressedSlice, 0);
@@ -172,7 +172,7 @@ public class Lz4DecompressorBenchmark
 
         for (RunResult result : results) {
             Result bytes = result.getSecondaryResults().get("getBytes");
-            System.out.println(result.getPrimaryResult().getLabel() + ": " + toHumanReadableSpeed((long) bytes.getStatistics().getMean()));
+            System.out.println(result.getPrimaryResult().getLabel() + ": " + toHumanReadableSpeed((long) bytes.getStatistics().getMean()) + " ± " + toHumanReadableSpeed((long) bytes.getStatistics().getStandardDeviation()));
         }
         System.out.println();
     }
