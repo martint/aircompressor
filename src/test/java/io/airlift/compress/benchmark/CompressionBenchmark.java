@@ -96,19 +96,19 @@ public class CompressionBenchmark
     }
 
     @Benchmark
-    public int compress(BytesCounter counter)
+    public byte[] compress(BytesCounter counter)
     {
-        int written = compressor.compress(uncompressed, 0, uncompressed.length, compressTarget, 0, compressTarget.length);
+        compressor.compress(uncompressed, 0, uncompressed.length, compressTarget, 0, compressTarget.length);
         counter.bytes += uncompressed.length;
-        return written;
+        return compressTarget;
     }
 
     @Benchmark
-    public int decompress(BytesCounter counter)
+    public byte[] decompress(BytesCounter counter)
     {
-        int written = decompressor.decompress(compressed, 0, compressed.length, uncompressTarget, 0, uncompressTarget.length);
+        decompressor.decompress(compressed, 0, compressed.length, uncompressTarget, 0, uncompressTarget.length);
         counter.bytes += uncompressed.length;
-        return written;
+        return uncompressTarget;
     }
 
     public static void main(String[] args)
