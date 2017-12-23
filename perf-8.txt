@@ -8,7 +8,7 @@
 # JMH version: 1.19
 # VM version: JDK 1.8.0_152, VM 25.152-b16
 # VM invoker: /data/users/martint/jdk/8u152/jre/bin/java
-# VM options: <none>
+# VM options: -XX:+UseG1GC
 # Warmup: 10 iterations, 1 s each
 # Measurement: 30 iterations, 1 s each
 # Timeout: 10 min per iteration
@@ -21,437 +21,437 @@
 # Fork: 1 of 1
 # Preparing profilers: LinuxPerfAsmProfiler 
 # Profilers consume stdout and stderr from target VM, use -v EXTRA to copy to console
-# Warmup Iteration   1: 133.644 ops/s
-# Warmup Iteration   2: 158.219 ops/s
-# Warmup Iteration   3: 151.660 ops/s
-# Warmup Iteration   4: 153.711 ops/s
-# Warmup Iteration   5: 156.714 ops/s
-# Warmup Iteration   6: 155.206 ops/s
-# Warmup Iteration   7: 155.680 ops/s
-# Warmup Iteration   8: 153.753 ops/s
-# Warmup Iteration   9: 155.327 ops/s
-# Warmup Iteration  10: 157.485 ops/s
-Iteration   1: 156.608 ops/s
-                 bytes: 1561468635.222 ops/s
+# Warmup Iteration   1: 136.870 ops/s
+# Warmup Iteration   2: 153.471 ops/s
+# Warmup Iteration   3: 154.531 ops/s
+# Warmup Iteration   4: 155.413 ops/s
+# Warmup Iteration   5: 155.563 ops/s
+# Warmup Iteration   6: 155.426 ops/s
+# Warmup Iteration   7: 154.878 ops/s
+# Warmup Iteration   8: 150.868 ops/s
+# Warmup Iteration   9: 153.648 ops/s
+# Warmup Iteration  10: 154.596 ops/s
+Iteration   1: 154.078 ops/s
+                 bytes: 1536248209.997 ops/s
 
-Iteration   2: 155.545 ops/s
-                 bytes: 1550872233.277 ops/s
+Iteration   2: 154.867 ops/s
+                 bytes: 1544106457.366 ops/s
 
-Iteration   3: 154.434 ops/s
-                 bytes: 1539795433.993 ops/s
+Iteration   3: 155.914 ops/s
+                 bytes: 1554549940.833 ops/s
 
-Iteration   4: 153.446 ops/s
-                 bytes: 1529938876.262 ops/s
+Iteration   4: 153.954 ops/s
+                 bytes: 1535009179.198 ops/s
 
-Iteration   5: 152.710 ops/s
-                 bytes: 1522604216.441 ops/s
+Iteration   5: 154.927 ops/s
+                 bytes: 1544709535.875 ops/s
 
-Iteration   6: 153.364 ops/s
-                 bytes: 1529127684.393 ops/s
+Iteration   6: 153.270 ops/s
+                 bytes: 1528192766.931 ops/s
 
-Iteration   7: 154.546 ops/s
-                 bytes: 1540910947.420 ops/s
+Iteration   7: 151.805 ops/s
+                 bytes: 1513585923.719 ops/s
 
-Iteration   8: 153.587 ops/s
-                 bytes: 1531351775.351 ops/s
+Iteration   8: 153.699 ops/s
+                 bytes: 1532462945.122 ops/s
 
-Iteration   9: 155.356 ops/s
-                 bytes: 1548985641.692 ops/s
+Iteration   9: 153.736 ops/s
+                 bytes: 1532832159.705 ops/s
 
-Iteration  10: 153.155 ops/s
-                 bytes: 1527046463.728 ops/s
+Iteration  10: 152.862 ops/s
+                 bytes: 1524125210.299 ops/s
 
-Iteration  11: 152.491 ops/s
-                 bytes: 1520423791.808 ops/s
+Iteration  11: 156.468 ops/s
+                 bytes: 1560072031.628 ops/s
 
-Iteration  12: 158.286 ops/s
-                 bytes: 1578204778.497 ops/s
+Iteration  12: 152.817 ops/s
+                 bytes: 1523673175.906 ops/s
 
-Iteration  13: 157.576 ops/s
-                 bytes: 1571123376.147 ops/s
+Iteration  13: 148.597 ops/s
+                 bytes: 1481596519.617 ops/s
 
-Iteration  14: 154.023 ops/s
-                 bytes: 1535698867.027 ops/s
+Iteration  14: 152.160 ops/s
+                 bytes: 1517125349.589 ops/s
 
-Iteration  15: 154.490 ops/s
-                 bytes: 1540356326.684 ops/s
+Iteration  15: 154.207 ops/s
+                 bytes: 1537527509.787 ops/s
 
-Iteration  16: 156.248 ops/s
-                 bytes: 1557881553.044 ops/s
+Iteration  16: 154.103 ops/s
+                 bytes: 1536492150.154 ops/s
 
-Iteration  17: 156.984 ops/s
-                 bytes: 1565214073.829 ops/s
+Iteration  17: 154.668 ops/s
+                 bytes: 1542122975.185 ops/s
 
-Iteration  18: 154.951 ops/s
-                 bytes: 1544943995.787 ops/s
+Iteration  18: 150.564 ops/s
+                 bytes: 1501207874.663 ops/s
 
-Iteration  19: 154.385 ops/s
-                 bytes: 1539310321.489 ops/s
+Iteration  19: 151.014 ops/s
+                 bytes: 1505690620.108 ops/s
 
-Iteration  20: 154.250 ops/s
-                 bytes: 1537958024.075 ops/s
+Iteration  20: 151.706 ops/s
+                 bytes: 1512596486.585 ops/s
 
-Iteration  21: 154.630 ops/s
-                 bytes: 1541752805.014 ops/s
+Iteration  21: 150.227 ops/s
+                 bytes: 1497845099.218 ops/s
 
-Iteration  22: 156.557 ops/s
-                 bytes: 1560965344.632 ops/s
+Iteration  22: 152.765 ops/s
+                 bytes: 1523149855.278 ops/s
 
-Iteration  23: 154.583 ops/s
-                 bytes: 1541279255.101 ops/s
+Iteration  23: 152.259 ops/s
+                 bytes: 1518108230.053 ops/s
 
-Iteration  24: 157.901 ops/s
-                 bytes: 1574357690.157 ops/s
+Iteration  24: 152.530 ops/s
+                 bytes: 1520812167.711 ops/s
 
-Iteration  25: 157.269 ops/s
-                 bytes: 1568059090.818 ops/s
+Iteration  25: 149.972 ops/s
+                 bytes: 1495306665.568 ops/s
 
-Iteration  26: 155.355 ops/s
-                 bytes: 1548979287.790 ops/s
+Iteration  26: 149.235 ops/s
+                 bytes: 1487952353.739 ops/s
 
-Iteration  27: 156.690 ops/s
-                 bytes: 1562285956.081 ops/s
+Iteration  27: 156.110 ops/s
+                 bytes: 1556505320.529 ops/s
 
-Iteration  28: 153.063 ops/s
-                 bytes: 1526124175.607 ops/s
+Iteration  28: 150.205 ops/s
+                 bytes: 1497624377.295 ops/s
 
-Iteration  29: 150.244 ops/s
-                 bytes: 1498022139.462 ops/s
+Iteration  29: 155.604 ops/s
+                 bytes: 1551455418.603 ops/s
 
-Iteration  30: 154.385 ops/s
-                 bytes: 1539307679.777 ops/s
+Iteration  30: 153.931 ops/s
+                 bytes: 1534773904.533 ops/s
 
 # Processing profiler results: LinuxPerfAsmProfiler 
 
 
 Result "io.airlift.compress.benchmark.CompressionBenchmark.decompress":
-  154.904 ±(99.9%) 1.218 ops/s [Average]
-  (min, avg, max) = (150.244, 154.904, 158.286), stdev = 1.823
-  CI (99.9%): [153.686, 156.122] (assumes normal distribution)
+  152.942 ±(99.9%) 1.395 ops/s [Average]
+  (min, avg, max) = (148.597, 152.942, 156.468), stdev = 2.087
+  CI (99.9%): [151.547, 154.336] (assumes normal distribution)
 
 Secondary result "io.airlift.compress.benchmark.CompressionBenchmark.decompress:bytes":
-  1544478348.020 ±(99.9%) 12145029.082 ops/s [Average]
-  (min, avg, max) = (1498022139.462, 1544478348.020, 1578204778.497), stdev = 18178109.159
-  CI (99.9%): [1532333318.938, 1556623377.103] (assumes normal distribution)
+  1524915347.160 ±(99.9%) 13905095.071 ops/s [Average]
+  (min, avg, max) = (1481596519.617, 1524915347.160, 1560072031.628), stdev = 20812493.272
+  CI (99.9%): [1511010252.089, 1538820442.231] (assumes normal distribution)
 
 Secondary result "io.airlift.compress.benchmark.CompressionBenchmark.decompress:·asm":
-PrintAssembly processed: 435341 total address lines.
-Perf output processed (skipped 21.452 seconds):
- Column 1: cycles (30501 events)
- Column 2: instructions (30512 events)
+PrintAssembly processed: 456932 total address lines.
+Perf output processed (skipped 21.956 seconds):
+ Column 1: cycles (30498 events)
+ Column 2: instructions (30487 events)
 
 Hottest code regions (>10.00% "cycles" events):
 
 ....[Hottest Region 1]..............................................................................
-C2, level 4, io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1244 (547 bytes) 
+C2, level 4, io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1247 (547 bytes) 
 
-                                   0x00007f66556ddffa: add    $0xfffffffffffffff4,%rbp  ;*lsub
+                                   0x00007f7d496fe7ba: add    $0xfffffffffffffff4,%rbp  ;*lsub
                                                                                  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@164 (line 75)
-                                   0x00007f66556ddffe: mov    0x20(%rsp),%r13
-                                   0x00007f66556de003: mov    %rdx,%r10
-                                   0x00007f66556de006: mov    %rcx,0x10(%rsp)
-                                   0x00007f66556de00b: mov    %r11,0x30(%rsp)
-                                   0x00007f66556de010: mov    %r9,(%rsp)
-                                   0x00007f66556de014: mov    %rbx,0x8(%rsp)
-                  ╭                0x00007f66556de019: jmp    0x00007f66556de050
-                  │                0x00007f66556de01b: nopl   0x0(%rax,%rax,1)
-  0.02%           │      ↗         0x00007f66556de020: add    $0x8,%rcx
-  0.37%    0.27%  │↗     │         0x00007f66556de024: mov    (%r8,%rcx,1),%r11
-  2.67%    1.27%  ││     │         0x00007f66556de028: mov    %r11,(%r8,%rbx,1)  ;*invokevirtual putLong
+                                   0x00007f7d496fe7be: mov    0x20(%rsp),%r13
+                                   0x00007f7d496fe7c3: mov    %rdx,%r10
+                                   0x00007f7d496fe7c6: mov    %rcx,0x10(%rsp)
+                                   0x00007f7d496fe7cb: mov    %r11,0x30(%rsp)
+                                   0x00007f7d496fe7d0: mov    %r9,(%rsp)
+                                   0x00007f7d496fe7d4: mov    %rbx,0x8(%rsp)
+                  ╭                0x00007f7d496fe7d9: jmp    0x00007f7d496fe810
+                  │                0x00007f7d496fe7db: nopl   0x0(%rax,%rax,1)
+  0.03%    0.00%  │      ↗         0x00007f7d496fe7e0: add    $0x8,%rcx
+  0.39%    0.29%  │↗     │         0x00007f7d496fe7e4: mov    (%r8,%rcx,1),%r11
+  2.59%    1.29%  ││     │         0x00007f7d496fe7e8: mov    %r11,(%r8,%rbx,1)  ;*invokevirtual putLong
                   ││     │                                                       ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@829 (line 173)
-  1.73%    1.01%  ││     │         0x00007f66556de02c: add    $0x8,%rcx          ;*ladd
+  1.86%    1.28%  ││     │         0x00007f7d496fe7ec: add    $0x8,%rcx          ;*ladd
                   ││     │                                                       ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@837 (line 174)
-  0.29%    0.31%  ││     │         0x00007f66556de030: add    $0x8,%rbx          ; OopMap{r8=Oop xmm0=Oop off=148}
+  0.25%    0.24%  ││     │         0x00007f7d496fe7f0: add    $0x8,%rbx          ; OopMap{r8=Oop xmm0=Oop off=148}
                   ││     │                                                       ;*lcmp
                   ││     │                                                       ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@852 (line 177)
-  0.35%    0.33%  ││     │         0x00007f66556de034: test   %eax,0x153edfc6(%rip)        # 0x00007f666aacc000
+  0.25%    0.31%  ││     │         0x00007f7d496fe7f4: test   %eax,0x157df806(%rip)        # 0x00007f7d5eede000
                   ││     │                                                       ;*lcmp
                   ││     │                                                       ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@852 (line 177)
                   ││     │                                                       ;   {poll}
-  1.45%    0.68%  ││     │         0x00007f66556de03a: cmp    %r13,%rbx
-                  │╰     │         0x00007f66556de03d: jl     0x00007f66556de024  ; OopMap{r8=Oop xmm0=Oop off=159}
+  1.54%    0.77%  ││     │         0x00007f7d496fe7fa: cmp    %r13,%rbx
+                  │╰     │         0x00007f7d496fe7fd: jl     0x00007f7d496fe7e4  ; OopMap{r8=Oop xmm0=Oop off=159}
                   │      │                                                       ;*goto
                   │      │                                                       ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@860 (line 181)
-  0.03%    0.05%  │      │↗        0x00007f66556de03f: test   %eax,0x153edfbb(%rip)        # 0x00007f666aacc000
+  0.04%    0.03%  │      │↗        0x00007f7d496fe7ff: test   %eax,0x157df7fb(%rip)        # 0x00007f7d5eede000
                   │      ││                                                      ;*goto
                   │      ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@860 (line 181)
                   │      ││                                                      ;   {poll}
-  3.65%    3.96%  │      ││        0x00007f66556de045: cmp    0x10(%rsp),%r10
-                  │      ││        0x00007f66556de04a: jge    0x00007f66556de3dd
-  0.51%    0.28%  ↘      ││        0x00007f66556de050: vmovq  %xmm0,%rcx
-  0.04%    0.08%         ││        0x00007f66556de055: add    %r10,%rcx
-  0.02%    0.01%         ││        0x00007f66556de058: movsbl (%rcx),%r9d        ;*invokevirtual getByte
+  3.57%    3.68%  │      ││        0x00007f7d496fe805: cmp    0x10(%rsp),%r10
+                  │      ││        0x00007f7d496fe80a: jge    0x00007f7d496feba9
+  0.52%    0.27%  ↘      ││        0x00007f7d496fe810: vmovq  %xmm0,%rcx
+  0.07%    0.06%         ││        0x00007f7d496fe815: add    %r10,%rcx
+  0.01%    0.01%         ││        0x00007f7d496fe818: movsbl (%rcx),%r9d        ;*invokevirtual getByte
                          ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@81 (line 60)
-  3.71%    3.54%         ││        0x00007f66556de05c: mov    %r9d,%r11d
-  0.10%    0.05%         ││        0x00007f66556de05f: shr    $0x4,%r11d
-  0.12%    0.11%         ││        0x00007f66556de063: mov    %r9d,%eax
-  0.01%    0.01%         ││        0x00007f66556de066: movzbl %al,%eax           ;*iand
+  3.28%    3.74%         ││        0x00007f7d496fe81c: mov    %r9d,%r11d
+  0.10%    0.08%         ││        0x00007f7d496fe81f: shr    $0x4,%r11d
+  0.15%    0.13%         ││        0x00007f7d496fe823: mov    %r9d,%eax
+  0.01%    0.02%         ││        0x00007f7d496fe826: movzbl %al,%eax           ;*iand
                          ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@87 (line 60)
-  3.40%    3.97%         ││        0x00007f66556de069: and    $0xf,%r11d         ;*iushr
+  3.53%    4.00%         ││        0x00007f7d496fe829: and    $0xf,%r11d         ;*iushr
                          ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@93 (line 63)
-  0.08%    0.05%         ││        0x00007f66556de06d: cmp    $0xf,%r11d
-  0.00%             ╭    ││        0x00007f66556de071: je     0x00007f66556de163  ;*if_icmpne
+  0.11%    0.07%         ││        0x00007f7d496fe82d: cmp    $0xf,%r11d
+                    ╭    ││        0x00007f7d496fe831: je     0x00007f7d496fe923  ;*if_icmpne
                     │    ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@100 (line 64)
-  0.33%    0.24%    │    ││        0x00007f66556de077: add    $0x1,%r10          ;*if_icmpne
+  0.41%    0.21%    │    ││        0x00007f7d496fe837: add    $0x1,%r10          ;*if_icmpne
                     │    ││                                                      ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@135 (line 70)
-  0.18%    0.23%    │    ││↗ ↗     0x00007f66556de07b: vmovq  %xmm0,%rdi
-  3.13%    3.66%    │    │││ │     0x00007f66556de080: add    %r10,%rdi          ;*invokevirtual getLong
+  0.24%    0.20%    │    ││↗ ↗     0x00007f7d496fe83b: vmovq  %xmm0,%rdi
+  3.22%    3.85%    │    │││ │     0x00007f7d496fe840: add    %r10,%rdi          ;*invokevirtual getLong
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@279 (line 94)
-  0.09%    0.09%    │    │││ │     0x00007f66556de083: mov    %r8,%rsi
-  0.26%    0.23%    │    │││ │     0x00007f66556de086: add    %r13,%rsi          ;*invokevirtual putLong
+  0.09%    0.07%    │    │││ │     0x00007f7d496fe843: mov    %r8,%rsi
+  0.36%    0.33%    │    │││ │     0x00007f7d496fe846: add    %r13,%rsi          ;*invokevirtual putLong
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@282 (line 94)
-  0.04%    0.05%    │    │││ │     0x00007f66556de089: movslq %r11d,%rdx         ;*i2l  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@153 (line 74)
-  3.10%    3.91%    │    │││ │     0x00007f66556de08c: mov    %r13,%rbx
-  0.04%    0.06%    │    │││ │     0x00007f66556de08f: add    %rdx,%rbx          ;*ladd
+  0.05%    0.07%    │    │││ │     0x00007f7d496fe849: movslq %r11d,%rdx         ;*i2l  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@153 (line 74)
+  3.07%    3.72%    │    │││ │     0x00007f7d496fe84c: mov    %r13,%rbx
+  0.06%    0.04%    │    │││ │     0x00007f7d496fe84f: add    %rdx,%rbx          ;*ladd
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@154 (line 74)
-  0.37%    0.28%    │    │││ │     0x00007f66556de092: mov    %r10,%rcx
-  0.01%    0.00%    │    │││ │     0x00007f66556de095: add    %rdx,%rcx          ;*ladd
+  0.43%    0.28%    │    │││ │     0x00007f7d496fe852: mov    %r10,%rcx
+  0.01%    0.01%    │    │││ │     0x00007f7d496fe855: add    %rdx,%rcx          ;*ladd
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@174 (line 75)
-  3.22%    4.18%    │    │││ │     0x00007f66556de098: cmp    %rbp,%rbx
-                    │    │││ │     0x00007f66556de09b: jg     0x00007f66556de299  ;*ifgt
+  3.06%    4.59%    │    │││ │     0x00007f7d496fe858: cmp    %rbp,%rbx
+                    │    │││ │     0x00007f7d496fe85b: jg     0x00007f7d496fea59  ;*ifgt
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@166 (line 75)
-  0.15%    0.11%    │    │││ │     0x00007f66556de0a1: cmp    %r14,%rcx
-                    │    │││ │     0x00007f66556de0a4: jg     0x00007f66556de341
-  0.96%    0.30%    │    │││ │     0x00007f66556de0aa: mov    (%rdi),%r11
-  1.58%    0.63%    │    │││ │     0x00007f66556de0ad: mov    %r11,(%rsi)        ;*invokevirtual putLong
+  0.18%    0.14%    │    │││ │     0x00007f7d496fe861: cmp    %r14,%rcx
+                    │    │││ │     0x00007f7d496fe864: jg     0x00007f7d496feb0f
+  0.99%    0.33%    │    │││ │     0x00007f7d496fe86a: mov    (%rdi),%r11
+  1.50%    0.62%    │    │││ │     0x00007f7d496fe86d: mov    %r11,(%rsi)        ;*invokevirtual putLong
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@282 (line 94)
-  3.62%    4.98%    │    │││ │     0x00007f66556de0b0: add    $0x8,%r13          ;*ladd
+  3.77%    4.84%    │    │││ │     0x00007f7d496fe870: add    $0x8,%r13          ;*ladd
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@298 (line 96)
-  0.05%    0.04%    │    │││ │     0x00007f66556de0b4: add    $0x8,%r10          ;*ladd
+  0.05%    0.05%    │    │││ │     0x00007f7d496fe874: add    $0x8,%r10          ;*ladd
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@290 (line 95)
-  0.17%    0.14%    │    │││ │     0x00007f66556de0b8: cmp    %rbx,%r13
-                    │╭   │││ │     0x00007f66556de0bb: jge    0x00007f66556de0e0  ;*iflt
+  0.16%    0.13%    │    │││ │     0x00007f7d496fe878: cmp    %rbx,%r13
+                    │╭   │││ │     0x00007f7d496fe87b: jge    0x00007f7d496fe8a0  ;*iflt
                     ││   │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@306 (line 98)
-  0.46%    0.52%    ││   │││ │     0x00007f66556de0bd: xchg   %ax,%ax
-  1.00%    0.63%    ││↗  │││ │     0x00007f66556de0c0: vmovq  %xmm0,%r11
-  1.23%    1.04%    │││  │││ │     0x00007f66556de0c5: mov    (%r11,%r10,1),%r11
-  3.23%    1.79%    │││  │││ │     0x00007f66556de0c9: mov    %r11,(%r8,%r13,1)  ;*invokevirtual putLong
+  0.53%    0.46%    ││   │││ │     0x00007f7d496fe87d: xchg   %ax,%ax
+  0.95%    0.62%    ││↗  │││ │     0x00007f7d496fe880: vmovq  %xmm0,%r11
+  1.27%    0.95%    │││  │││ │     0x00007f7d496fe885: mov    (%r11,%r10,1),%r11
+  3.27%    1.96%    │││  │││ │     0x00007f7d496fe889: mov    %r11,(%r8,%r13,1)  ;*invokevirtual putLong
                     │││  │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@282 (line 94)
-  2.12%    1.47%    │││  │││ │     0x00007f66556de0cd: add    $0x8,%r10          ;*ladd
+  2.01%    1.46%    │││  │││ │     0x00007f7d496fe88d: add    $0x8,%r10          ;*ladd
                     │││  │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@290 (line 95)
-  0.02%    0.00%    │││  │││ │     0x00007f66556de0d1: add    $0x8,%r13          ; OopMap{r8=Oop xmm0=Oop off=309}
+  0.01%    0.01%    │││  │││ │     0x00007f7d496fe891: add    $0x8,%r13          ; OopMap{r8=Oop xmm0=Oop off=309}
                     │││  │││ │                                                   ;*lcmp
                     │││  │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@305 (line 98)
-  0.01%    0.02%    │││  │││ │     0x00007f66556de0d5: test   %eax,0x153edf25(%rip)        # 0x00007f666aacc000
+  0.00%    0.02%    │││  │││ │     0x00007f7d496fe895: test   %eax,0x157df765(%rip)        # 0x00007f7d5eede000
                     │││  │││ │                                                   ;*lcmp
                     │││  │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@305 (line 98)
                     │││  │││ │                                                   ;   {poll}
-  0.93%    0.78%    │││  │││ │     0x00007f66556de0db: cmp    %rbx,%r13
-                    ││╰  │││ │     0x00007f66556de0de: jl     0x00007f66556de0c0  ;*invokevirtual getShort
+  0.90%    0.76%    │││  │││ │     0x00007f7d496fe89b: cmp    %rbx,%r13
+                    ││╰  │││ │     0x00007f7d496fe89e: jl     0x00007f7d496fe880  ;*invokevirtual getShort
                     ││   │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@329 (line 104)
-  0.48%    0.29%    │↘   │││ │     0x00007f66556de0e0: add    %rbx,%r10
-  3.78%    5.05%    │    │││ │     0x00007f66556de0e3: sub    %r13,%r10          ;*lsub
+  0.46%    0.31%    │↘   │││ │     0x00007f7d496fe8a0: add    %rbx,%r10
+  3.97%    4.82%    │    │││ │     0x00007f7d496fe8a3: sub    %r13,%r10          ;*lsub
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@316 (line 99)
-  0.55%    0.49%    │    │││ │     0x00007f66556de0e6: vmovq  %xmm0,%r11
-  0.21%    0.20%    │    │││ │     0x00007f66556de0eb: movzwl (%r11,%r10,1),%r11d  ;*invokevirtual getShort
+  0.54%    0.48%    │    │││ │     0x00007f7d496fe8a6: vmovq  %xmm0,%r11
+  0.21%    0.22%    │    │││ │     0x00007f7d496fe8ab: movzwl (%r11,%r10,1),%r11d  ;*invokevirtual getShort
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@329 (line 104)
-  3.05%    3.55%    │    │││ │     0x00007f66556de0f0: add    $0x2,%r10          ;*ladd
+  3.28%    3.68%    │    │││ │     0x00007f7d496fe8b0: add    $0x2,%r10          ;*ladd
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@342 (line 105)
-  2.37%    3.05%    │    │││ │     0x00007f66556de0f4: movslq %r11d,%rsi         ;*i2l  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@349 (line 107)
-  1.24%    1.53%    │    │││ │     0x00007f66556de0f7: mov    %rbx,%rcx
-  0.06%    0.05%    │    │││ │     0x00007f66556de0fa: sub    %rsi,%rcx          ;*lsub
+  2.23%    3.20%    │    │││ │     0x00007f7d496fe8b4: movslq %r11d,%rsi         ;*i2l  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@349 (line 107)
+  1.23%    1.48%    │    │││ │     0x00007f7d496fe8b7: mov    %rbx,%rcx
+  0.07%    0.06%    │    │││ │     0x00007f7d496fe8ba: sub    %rsi,%rcx          ;*lsub
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@350 (line 107)
-  1.65%    1.97%    │    │││ │     0x00007f66556de0fd: cmp    0x20(%rsp),%rcx
-                    │    │││ │     0x00007f66556de102: jl     0x00007f66556de38d  ;*ifge
+  1.70%    2.01%    │    │││ │     0x00007f7d496fe8bd: cmp    0x20(%rsp),%rcx
+                    │    │││ │     0x00007f7d496fe8c2: jl     0x00007f7d496feb59  ;*ifge
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@358 (line 108)
-  3.62%    4.45%    │    │││ │     0x00007f66556de108: and    $0xf,%r9d          ;*iand
+  3.46%    4.49%    │    │││ │     0x00007f7d496fe8c8: and    $0xf,%r9d          ;*iand
                     │    │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@379 (line 113)
-  0.00%    0.01%    │    │││ │     0x00007f66556de10c: cmp    $0xf,%r9d
-                    │  ╭ │││ │     0x00007f66556de110: je     0x00007f66556de20e  ;*iinc
+  0.04%    0.04%    │    │││ │     0x00007f7d496fe8cc: cmp    $0xf,%r9d
+                    │  ╭ │││ │     0x00007f7d496fe8d0: je     0x00007f7d496fe9ce  ;*iinc
                     │  │ │││ │                                                   ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@447 (line 126)
-  0.12%    0.10%    │  │ │││ │ ↗   0x00007f66556de116: mov    %r8,%rdx
-  0.09%    0.09%    │  │ │││ │ │   0x00007f66556de119: add    %rcx,%rdx          ;*invokevirtual getByte
+  0.12%    0.15%    │  │ │││ │ ↗   0x00007f7d496fe8d6: mov    %r8,%rdx
+  0.10%    0.07%    │  │ │││ │ │   0x00007f7d496fe8d9: add    %rcx,%rdx          ;*invokevirtual getByte
                     │  │ │││ │ │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@495 (line 139)
-  3.25%    3.86%    │  │ │││ │ │   0x00007f66556de11c: mov    %r8,%rdi
-  0.05%    0.05%    │  │ │││ │ │   0x00007f66556de11f: add    %rbx,%rdi          ;*invokevirtual putByte
+  3.33%    3.69%    │  │ │││ │ │   0x00007f7d496fe8dc: mov    %r8,%rdi
+  0.07%    0.05%    │  │ │││ │ │   0x00007f7d496fe8df: add    %rbx,%rdi          ;*invokevirtual putByte
                     │  │ │││ │ │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@498 (line 139)
-  0.03%    0.03%    │  │ │││ │ │   0x00007f66556de122: add    $0x4,%r9d
-  0.08%    0.04%    │  │ │││ │ │   0x00007f66556de126: movslq %r9d,%r13
-  3.33%    3.99%    │  │ │││ │ │   0x00007f66556de129: add    %rbx,%r13          ;*ladd
+  0.09%    0.08%    │  │ │││ │ │   0x00007f7d496fe8e2: add    $0x4,%r9d
+  0.05%    0.05%    │  │ │││ │ │   0x00007f7d496fe8e6: movslq %r9d,%r13
+  3.44%    3.84%    │  │ │││ │ │   0x00007f7d496fe8e9: add    %rbx,%r13          ;*ladd
                     │  │ │││ │ │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@455 (line 128)
-  0.23%    0.06%    │  │ │││ │ │   0x00007f66556de12c: cmp    $0x8,%r11d
-                    │  │╭│││ │ │   0x00007f66556de130: jl     0x00007f66556de1ae
-  0.13%    0.03%    │  │││││ │ │   0x00007f66556de136: mov    (%rdx),%r11
- 10.89%   11.92%    │  │││││ │ │   0x00007f66556de139: mov    %r11,(%rdi)        ;*invokevirtual putLong
+  0.20%    0.09%    │  │ │││ │ │   0x00007f7d496fe8ec: cmp    $0x8,%r11d
+                    │  │╭│││ │ │   0x00007f7d496fe8f0: jl     0x00007f7d496fe96e
+  0.14%    0.08%    │  │││││ │ │   0x00007f7d496fe8f6: mov    (%rdx),%r11
+ 10.38%   11.86%    │  │││││ │ │   0x00007f7d496fe8f9: mov    %r11,(%rdi)        ;*invokevirtual putLong
                     │  │││││ │ │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@653 (line 151)
-  3.80%    3.63%    │  │││││ │ │   0x00007f66556de13c: add    $0x8,%rcx          ;*lload
+  3.61%    3.67%    │  │││││ │ │   0x00007f7d496fe8fc: add    $0x8,%rcx          ;*lload
                     │  │││││ │ │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@672 (line 156)
-  0.05%    0.03%    │  │││││ │↗│   0x00007f66556de140: cmp    %rbp,%r13
-                    │  │││││ │││   0x00007f66556de143: jg     0x00007f66556de2cf
-  0.19%    0.06%    │  │││││ │││   0x00007f66556de149: mov    (%r8,%rcx,1),%r11
-  3.89%    3.40%    │  │││││ │││   0x00007f66556de14d: mov    %r11,0x8(%rdi)     ;*invokevirtual putLong
+  0.05%    0.03%    │  │││││ │↗│   0x00007f7d496fe900: cmp    %rbp,%r13
+                    │  │││││ │││   0x00007f7d496fe903: jg     0x00007f7d496fea8f
+  0.20%    0.03%    │  │││││ │││   0x00007f7d496fe909: mov    (%r8,%rcx,1),%r11
+  3.94%    3.39%    │  │││││ │││   0x00007f7d496fe90d: mov    %r11,0x8(%rdi)     ;*invokevirtual putLong
                     │  │││││ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@829 (line 173)
-  3.80%    3.73%    │  │││││ │││   0x00007f66556de151: add    $0x10,%rbx         ;*ladd
+  3.67%    3.39%    │  │││││ │││   0x00007f7d496fe911: add    $0x10,%rbx         ;*ladd
                     │  │││││ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@845 (line 175)
-  0.02%    0.03%    │  │││││ │││   0x00007f66556de155: cmp    %r13,%rbx
-                    │  ││╰││ │││   0x00007f66556de158: jl     0x00007f66556de020  ;*iflt
+  0.03%    0.02%    │  │││││ │││   0x00007f7d496fe915: cmp    %r13,%rbx
+                    │  ││╰││ │││   0x00007f7d496fe918: jl     0x00007f7d496fe7e0  ;*iflt
                     │  ││ ││ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@853 (line 177)
-  0.05%    0.04%    │  ││ ╰│ │││   0x00007f66556de15e: jmpq   0x00007f66556de03f
-  0.77%    0.64%    ↘  ││  │ │││   0x00007f66556de163: movzbl 0x1(%rcx),%ecx     ;*invokevirtual getByte
+  0.05%    0.04%    │  ││ ╰│ │││   0x00007f7d496fe91e: jmpq   0x00007f7d496fe7ff
+  0.94%    0.55%    ↘  ││  │ │││   0x00007f7d496fe923: movzbl 0x1(%rcx),%ecx     ;*invokevirtual getByte
                        ││  │ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@114 (line 67)
-  1.42%    1.78%       ││  │ │││   0x00007f66556de167: add    $0x2,%r10          ;*ladd
+  1.60%    1.83%       ││  │ │││   0x00007f7d496fe927: add    $0x2,%r10          ;*ladd
                        ││  │ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@111 (line 67)
-  0.04%    0.03%       ││  │ │││   0x00007f66556de16b: mov    %ecx,%r11d
-  0.18%    0.25%       ││  │ │││   0x00007f66556de16e: add    $0xf,%r11d         ;*iadd
+  0.04%    0.01%       ││  │ │││   0x00007f7d496fe92b: mov    %ecx,%r11d
+  0.18%    0.16%       ││  │ │││   0x00007f7d496fe92e: add    $0xf,%r11d         ;*iadd
                        ││  │ │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@127 (line 68)
-  0.19%    0.20%       ││  │ │││   0x00007f66556de172: cmp    $0xff,%ecx
-                       ││  ╰ │││   0x00007f66556de178: jne    0x00007f66556de07b  ;*if_icmpne
+  0.19%    0.16%       ││  │ │││   0x00007f7d496fe932: cmp    $0xff,%ecx
+                       ││  ╰ │││   0x00007f7d496fe938: jne    0x00007f7d496fe83b  ;*if_icmpne
                        ││    │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@135 (line 70)
-  0.04%    0.02%       ││    │││   0x00007f66556de17e: xchg   %ax,%ax            ; OopMap{r8=Oop xmm0=Oop off=480}
+  0.05%    0.03%       ││    │││   0x00007f7d496fe93e: xchg   %ax,%ax            ; OopMap{r8=Oop xmm0=Oop off=480}
                        ││    │││                                                 ;*lcmp
                        ││    │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@145 (line 70)
-  0.01%                ││   ↗│││   0x00007f66556de180: test   %eax,0x153ede7a(%rip)        # 0x00007f666aacc000
+  0.00%    0.01%       ││   ↗│││   0x00007f7d496fe940: test   %eax,0x157df6ba(%rip)        # 0x00007f7d5eede000
                        ││   ││││                                                 ;*lcmp
                        ││   ││││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@145 (line 70)
                        ││   ││││                                                 ;   {poll}
-  0.06%    0.01%       ││   ││││   0x00007f66556de186: cmp    (%rsp),%r10
-                       ││   ││││   0x00007f66556de18a: jge    0x00007f66556de4ed
-                       ││   ││││   0x00007f66556de190: vmovq  %xmm0,%rcx
-                       ││   ││││   0x00007f66556de195: movzbl (%rcx,%r10,1),%ecx  ;*invokevirtual getByte
+  0.07%    0.03%       ││   ││││   0x00007f7d496fe946: cmp    (%rsp),%r10
+                       ││   ││││   0x00007f7d496fe94a: jge    0x00007f7d496fecb9
+                       ││   ││││   0x00007f7d496fe950: vmovq  %xmm0,%rcx
+                       ││   ││││   0x00007f7d496fe955: movzbl (%rcx,%r10,1),%ecx  ;*invokevirtual getByte
                        ││   ││││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@114 (line 67)
-                       ││   ││││   0x00007f66556de19a: add    %ecx,%r11d         ;*iadd
+                       ││   ││││   0x00007f7d496fe95a: add    %ecx,%r11d         ;*iadd
                        ││   ││││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@127 (line 68)
-  0.01%                ││   ││││   0x00007f66556de19d: add    $0x1,%r10          ;*ladd
+  0.00%    0.01%       ││   ││││   0x00007f7d496fe95d: add    $0x1,%r10          ;*ladd
                        ││   ││││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@111 (line 67)
-                       ││   ││││   0x00007f66556de1a1: cmp    $0xff,%ecx
-                       ││   ╰│││   0x00007f66556de1a7: je     0x00007f66556de180  ;*if_icmpne
+                       ││   ││││   0x00007f7d496fe961: cmp    $0xff,%ecx
+                       ││   ╰│││   0x00007f7d496fe967: je     0x00007f7d496fe940  ;*if_icmpne
                        ││    │││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@135 (line 70)
-                       ││    ╰││   0x00007f66556de1a9: jmpq   0x00007f66556de07b
-  0.20%    0.23%       │↘     ││   0x00007f66556de1ae: cmp    $0x8,%r11d
-                       │      ││   0x00007f66556de1b2: jae    0x00007f66556de441  ;*iaload
+  0.00%                ││    ╰││   0x00007f7d496fe969: jmpq   0x00007f7d496fe83b
+  0.16%    0.21%       │↘     ││   0x00007f7d496fe96e: cmp    $0x8,%r11d
+                       │      ││   0x00007f7d496fe972: jae    0x00007f7d496fec0d  ;*iaload
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@470 (line 136)
-  0.31%    0.26%       │      ││   0x00007f66556de1b8: mov    $0x5879e6e30,%r11  ;   {oop([I)}
-  0.01%    0.01%       │      ││   0x00007f66556de1c2: movslq 0x10(%r11,%rsi,4),%r11
-  0.29%    0.33%       │      ││   0x00007f66556de1c7: mov    $0x5879e6e00,%r9   ;   {oop([I)}
-                       │      ││   0x00007f66556de1d1: movslq 0x10(%r9,%rsi,4),%rsi  ;*invokevirtual getByte
+  0.29%    0.23%       │      ││   0x00007f7d496fe978: mov    $0xff729908,%r11   ;   {oop([I)}
+  0.00%    0.00%       │      ││   0x00007f7d496fe982: movslq 0x10(%r11,%rsi,4),%r11
+  0.32%    0.33%       │      ││   0x00007f7d496fe987: mov    $0xff7298d8,%r9    ;   {oop([I)}
+                       │      ││   0x00007f7d496fe991: movslq 0x10(%r9,%rsi,4),%rsi  ;*invokevirtual getByte
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@495 (line 139)
-  0.05%    0.06%       │      ││   0x00007f66556de1d6: add    %rcx,%rsi          ;*ladd
+  0.05%    0.04%       │      ││   0x00007f7d496fe996: add    %rcx,%rsi          ;*ladd
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@594 (line 144)
-  0.05%    0.08%       │      ││   0x00007f66556de1d9: movsbl (%rdx),%r9d
-  0.02%    0.01%       │      ││   0x00007f66556de1dd: mov    %r9b,(%rdi)        ;*invokevirtual getByte
+  0.06%    0.08%       │      ││   0x00007f7d496fe999: movsbl (%rdx),%r9d
+  0.01%    0.00%       │      ││   0x00007f7d496fe99d: mov    %r9b,(%rdi)        ;*invokevirtual getByte
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@519 (line 140)
-  0.13%    0.10%       │      ││   0x00007f66556de1e0: mov    %rsi,%rcx
-  0.00%                │      ││   0x00007f66556de1e3: sub    %r11,%rcx          ;*lsub
+  0.12%    0.09%       │      ││   0x00007f7d496fe9a0: mov    %rsi,%rcx
+  0.00%                │      ││   0x00007f7d496fe9a3: sub    %r11,%rcx          ;*lsub
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@630 (line 148)
-  0.03%    0.01%       │      ││   0x00007f66556de1e6: movsbl 0x1(%rdx),%r9d
-  0.01%    0.01%       │      ││   0x00007f66556de1eb: mov    %r9b,0x1(%rdi)
-  0.04%    0.02%       │      ││   0x00007f66556de1ef: movsbl 0x2(%rdx),%r9d
-  0.12%    0.04%       │      ││   0x00007f66556de1f4: mov    %r9b,0x2(%rdi)
-  0.03%    0.01%       │      ││   0x00007f66556de1f8: movsbl 0x3(%rdx),%r9d
-  0.08%    0.02%       │      ││   0x00007f66556de1fd: mov    %r9b,0x3(%rdi)
-  0.04%    0.01%       │      ││   0x00007f66556de201: mov    (%r8,%rsi,1),%r9d
-  0.88%    0.28%       │      ││   0x00007f66556de205: mov    %r9d,0x4(%rdi)     ;*invokevirtual putInt
+  0.03%    0.02%       │      ││   0x00007f7d496fe9a6: movsbl 0x1(%rdx),%r9d
+  0.01%                │      ││   0x00007f7d496fe9ab: mov    %r9b,0x1(%rdi)
+  0.05%    0.01%       │      ││   0x00007f7d496fe9af: movsbl 0x2(%rdx),%r9d
+  0.09%    0.03%       │      ││   0x00007f7d496fe9b4: mov    %r9b,0x2(%rdi)
+  0.04%    0.01%       │      ││   0x00007f7d496fe9b8: movsbl 0x3(%rdx),%r9d
+  0.10%    0.03%       │      ││   0x00007f7d496fe9bd: mov    %r9b,0x3(%rdi)
+  0.03%    0.03%       │      ││   0x00007f7d496fe9c1: mov    (%r8,%rsi,1),%r9d
+  1.04%    0.35%       │      ││   0x00007f7d496fe9c5: mov    %r9d,0x4(%rdi)     ;*invokevirtual putInt
                        │      ││                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@614 (line 146)
-  0.06%    0.01%       │      ╰│   0x00007f66556de209: jmpq   0x00007f66556de140
-  0.03%    0.02%       ↘       │   0x00007f66556de20e: cmp    0x8(%rsp),%r10
-                               │   0x00007f66556de213: jg     0x00007f66556de4a1  ;*ifle
+  0.07%    0.01%       │      ╰│   0x00007f7d496fe9c9: jmpq   0x00007f7d496fe900
+  0.04%    0.04%       ↘       │   0x00007f7d496fe9ce: cmp    0x8(%rsp),%r10
+  0.00%                        │   0x00007f7d496fe9d3: jg     0x00007f7d496fec6d  ;*ifle
                                │                                                 ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@397 (line 117)
-  0.44%    0.50%               │   0x00007f66556de219: mov    $0xf,%r9d
-  0.01%                        │   0x00007f66556de21f: nop    
-  0.08%    0.06%               │↗  0x00007f66556de220: vmovq  %xmm0,%rdi
-                               ││  0x00007f66556de225: movzbl (%rdi,%r10,1),%eax  ;*invokevirtual getByte
+  0.37%    0.50%               │   0x00007f7d496fe9d9: mov    $0xf,%r9d
+           0.00%               │   0x00007f7d496fe9df: nop    
+  0.05%    0.05%               │↗  0x00007f7d496fe9e0: vmovq  %xmm0,%rdi
+           0.00%               ││  0x00007f7d496fe9e5: movzbl (%rdi,%r10,1),%eax  ;*invokevirtual getByte
                                ││                                                ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@423 (line 121)
-  0.14%    0.15%               ││  0x00007f66556de22a: add    %eax,%r9d          ;*iadd
+  0.12%    0.17%               ││  0x00007f7d496fe9ea: add    %eax,%r9d          ;*iadd
                                ││                                                ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@436 (line 122)
-  0.10%    0.15%               ││  0x00007f66556de22d: add    $0x1,%r10          ; OopMap{r8=Oop rdi=Oop xmm0=Oop off=657}
+  0.11%    0.11%               ││  0x00007f7d496fe9ed: add    $0x1,%r10          ; OopMap{r8=Oop rdi=Oop xmm0=Oop off=657}
                                ││                                                ;*if_icmpeq
                                ││                                                ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@444 (line 124)
-           0.00%               ││  0x00007f66556de231: test   %eax,0x153eddc9(%rip)        # 0x00007f666aacc000
+  0.00%                        ││  0x00007f7d496fe9f1: test   %eax,0x157df609(%rip)        # 0x00007f7d5eede000
                                ││                                                ;   {poll}
-  0.09%    0.11%               ││  0x00007f66556de237: cmp    $0xff,%eax
-                               ╰│  0x00007f66556de23d: jne    0x00007f66556de116  ;*if_icmpeq
+  0.08%    0.09%               ││  0x00007f7d496fe9f7: cmp    $0xff,%eax
+                               ╰│  0x00007f7d496fe9fd: jne    0x00007f7d496fe8d6  ;*if_icmpeq
                                 │                                                ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@444 (line 124)
-  0.05%    0.03%                │  0x00007f66556de243: cmp    0x8(%rsp),%r10
-                                ╰  0x00007f66556de248: jle    0x00007f66556de220  ;*ifle
+  0.02%    0.03%                │  0x00007f7d496fea03: cmp    0x8(%rsp),%r10
+                                ╰  0x00007f7d496fea08: jle    0x00007f7d496fe9e0  ;*ifle
                                                                                  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@397 (line 117)
-                                   0x00007f66556de24a: mov    0x8(%rsp),%rdi
-                                   0x00007f66556de24f: cmp    %rdi,%r10
-                                   0x00007f66556de252: mov    $0xffffffff,%ebp
-                                   0x00007f66556de257: jl     0x00007f66556de261
-                                   0x00007f66556de259: setne  %bpl
-                                   0x00007f66556de25d: movzbl %bpl,%ebp          ;*lcmp
+                                   0x00007f7d496fea0a: mov    0x8(%rsp),%rdi
+                                   0x00007f7d496fea0f: cmp    %rdi,%r10
+                                   0x00007f7d496fea12: mov    $0xffffffff,%ebp
+                                   0x00007f7d496fea17: jl     0x00007f7d496fea21
+                                   0x00007f7d496fea19: setne  %bpl
+                                   0x00007f7d496fea1d: movzbl %bpl,%ebp          ;*lcmp
                                                                                  ; - io.airlift.compress.lz4.Lz4RawDecompressor::decompress@396 (line 117)
 ....................................................................................................
- 97.81%   98.50%  <total for region 1>
+ 97.84%   98.56%  <total for region 1>
 
 ....[Hottest Regions]...............................................................................
- 97.81%   98.50%                           C2, level 4  io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1244 (547 bytes) 
-  0.17%    0.16%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __intel_pmu_enable_all (0 bytes) 
+ 97.84%   98.56%                           C2, level 4  io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1247 (547 bytes) 
+  0.22%    0.21%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __intel_pmu_enable_all (0 bytes) 
   0.14%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_lock_irqsave (13 bytes) 
-  0.06%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_unlock (16 bytes) 
-  0.05%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_wall_time (0 bytes) 
-  0.04%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_trylock (39 bytes) 
-  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  cpuacct_account_field (12 bytes) 
-  0.03%    0.03%                             libjvm.so  fileStream::write (76 bytes) 
-  0.03%    0.03%                             libjvm.so  outputStream::update_position (48 bytes) 
-  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  rcu_check_callbacks (12 bytes) 
-  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __fget (55 bytes) 
-  0.02%    0.02%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  copy_user_generic_string (31 bytes) 
-  0.02%                                          [kvm]  pvclock_gtod_notify (0 bytes) 
-  0.02%                                    C1, level 3  io.airlift.compress.benchmark.CompressionBenchmark::decompress, version 1255 (0 bytes) 
-  0.02%    0.02%                          libc-2.17.so  _IO_fwrite (13 bytes) 
-  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  account_user_time (21 bytes) 
-  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  hrtimer_active (3 bytes) 
-  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __sb_start_write (3 bytes) 
-  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_lock (13 bytes) 
-  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  irq_work_interrupt (0 bytes) 
-  1.44%    1.19%  <...other 498 warm regions...>
+  0.04%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  apic_timer_interrupt (18 bytes) 
+  0.04%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_trylock (39 bytes) 
+  0.04%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  account_user_time (0 bytes) 
+  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_wall_time (0 bytes) 
+  0.03%    0.04%                             libjvm.so  RelocIterator::initialize (106 bytes) 
+  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  intel_pmu_disable_all (0 bytes) 
+  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  irq_work_interrupt (18 bytes) 
+  0.03%    0.02%                             libjvm.so  fileStream::write (33 bytes) 
+  0.02%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_unlock (0 bytes) 
+  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  native_apic_msr_eoi_write (0 bytes) 
+  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  cpuacct_charge (11 bytes) 
+  0.02%    0.02%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_lock (7 bytes) 
+  0.02%    0.02%                             libjvm.so  outputStream::update_position (8 bytes) 
+  0.02%    0.01%                          libc-2.17.so  _IO_fwrite (6 bytes) 
+  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_cfs_shares (28 bytes) 
+  0.02%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __fget (46 bytes) 
+  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  selinux_file_permission (75 bytes) 
+  1.37%    1.06%  <...other 466 warm regions...>
 ....................................................................................................
-100.00%  100.00%  <totals>
+100.00%   99.98%  <totals>
 
 ....[Hottest Methods (after inlining)]..............................................................
- 97.81%   98.50%                           C2, level 4  io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1244 
-  0.17%    0.16%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __intel_pmu_enable_all 
+ 97.84%   98.56%                           C2, level 4  io.airlift.compress.lz4.Lz4RawDecompressor::decompress, version 1247 
+  0.22%    0.21%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __intel_pmu_enable_all 
   0.14%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_lock_irqsave 
-  0.06%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_unlock 
-  0.05%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_wall_time 
-  0.04%    0.04%                          libc-2.17.so  vfprintf 
-  0.04%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  ext4_mark_iloc_dirty 
-  0.04%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  rcu_check_callbacks 
-  0.04%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_trylock 
-  0.04%    0.03%                        hsdis-amd64.so  print_insn 
-  0.04%    0.04%                             libjvm.so  fileStream::write 
-  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  cpuacct_account_field 
-  0.03%    0.02%                          libc-2.17.so  _IO_fwrite 
-  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_cfs_shares 
-  0.03%    0.03%                             libjvm.so  outputStream::update_position 
-  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __fget 
-  0.02%    0.02%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  task_tick_fair 
-  0.02%    0.03%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  __audit_syscall_exit 
-  0.02%                                          [kvm]  pvclock_gtod_notify 
-  0.02%    0.02%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  copy_user_generic_string 
-  1.31%    0.76%  <...other 228 warm methods...>
+  0.05%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_wall_time 
+  0.05%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  apic_timer_interrupt 
+  0.04%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  update_cfs_shares 
+  0.04%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  _raw_spin_trylock 
+  0.04%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  account_user_time 
+  0.04%    0.03%                             libjvm.so  fileStream::write 
+  0.03%    0.05%                             libjvm.so  RelocIterator::initialize 
+  0.03%    0.04%                          libc-2.17.so  _IO_fwrite 
+  0.03%    0.02%                        hsdis-amd64.so  print_insn 
+  0.03%    0.05%                          libc-2.17.so  vfprintf 
+  0.03%    0.02%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  selinux_file_permission 
+  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  irq_work_interrupt 
+  0.03%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  intel_pmu_disable_all 
+  0.02%    0.03%                             libjvm.so  xmlTextStream::write 
+  0.02%    0.00%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  mutex_unlock 
+  0.02%           vmlinux-4.6.7-67_fbk19_3578_gd30adc4  native_apic_msr_eoi_write 
+  0.02%    0.01%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4  cpuacct_charge 
+  1.26%    0.70%  <...other 218 warm methods...>
 ....................................................................................................
-100.00%   99.68%  <totals>
+100.00%   99.75%  <totals>
 
 ....[Distribution by Source]........................................................................
- 97.81%   98.50%                           C2, level 4
-  1.40%    0.80%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4
-  0.32%    0.37%                             libjvm.so
-  0.18%    0.21%                          libc-2.17.so
-  0.08%    0.04%                        hsdis-amd64.so
-  0.07%    0.02%                           interpreter
-  0.06%    0.06%                    libpthread-2.17.so
-  0.03%    0.00%                           C1, level 3
-  0.02%                                          [kvm]
-  0.01%    0.00%                          runtime stub
-  0.01%                               perf-2009575.map
-  0.00%    0.00%                      Unknown, level 0
+ 97.84%   98.56%                           C2, level 4
+  1.43%    0.81%  vmlinux-4.6.7-67_fbk19_3578_gd30adc4
+  0.30%    0.31%                             libjvm.so
+  0.19%    0.22%                          libc-2.17.so
+  0.08%    0.01%                           interpreter
+  0.07%    0.04%                        hsdis-amd64.so
+  0.03%    0.01%                           C1, level 3
+  0.02%                                   runtime stub
+  0.02%    0.03%                    libpthread-2.17.so
+  0.01%                                               
+  0.01%                                          [kvm]
+  0.00%                               perf-1527118.map
 ....................................................................................................
-100.00%  100.00%  <totals>
+100.00%   99.98%  <totals>
 
 
 
-# Run complete. Total time: 00:00:56
+# Run complete. Total time: 00:00:58
 
 Benchmark                              (algorithm)      (name)   Mode  Cnt           Score          Error  Units
-CompressionBenchmark.decompress        airlift_lz4  silesia/mr  thrpt   30         154.904 ±        1.218  ops/s
-CompressionBenchmark.decompress:bytes  airlift_lz4  silesia/mr  thrpt   30  1544478348.020 ± 12145029.082  ops/s
+CompressionBenchmark.decompress        airlift_lz4  silesia/mr  thrpt   30         152.942 ±        1.395  ops/s
+CompressionBenchmark.decompress:bytes  airlift_lz4  silesia/mr  thrpt   30  1524915347.160 ± 13905095.071  ops/s
 CompressionBenchmark.decompress:·asm   airlift_lz4  silesia/mr  thrpt                  NaN                   ---
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
-[INFO] Total time: 58.576 s
-[INFO] Finished at: 2017-12-22T09:27:56-08:00
+[INFO] Total time: 59.810 s
+[INFO] Finished at: 2017-12-22T23:41:58-08:00
 [INFO] Final Memory: 16M/2118M
 [INFO] ------------------------------------------------------------------------

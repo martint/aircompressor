@@ -20,7 +20,7 @@ To reproduce:
 mvn test-compile exec:exec \
     -Dexec.classpathScope=test \
     -Dexec.executable="java" \
-    -Dexec.args="-cp %classpath io.airlift.compress.benchmark.CompressionBenchmark -p algorithm=airlift_lz4 -i 20 -wi 20 -f 10"
+    -Dexec.args="-XX:+UseG1GC -cp %classpath io.airlift.compress.benchmark.CompressionBenchmark -p algorithm=airlift_lz4 -i 20 -wi 20 -f 10"
 ```
 
 Other available algorithms: airlift_lz4, airlift_lzo, airlift_snappy, airlift_zstd (decompressor only)
@@ -34,35 +34,35 @@ Other available algorithms: airlift_lz4, airlift_lzo, airlift_snappy, airlift_zs
 #### Java 8
 ```
 Data                Throughput
-silesia/dickens     184.2MB/s ±  1404.8kB/s ( 0.74%) (N = 200, α = 99.9%)
-silesia/mozilla     293.7MB/s ±  1475.0kB/s ( 0.49%) (N = 200, α = 99.9%)
-silesia/mr          280.5MB/s ±  2094.4kB/s ( 0.73%) (N = 200, α = 99.9%)
-silesia/nci         573.4MB/s ±  1843.5kB/s ( 0.31%) (N = 200, α = 99.9%)
-silesia/ooffice     228.1MB/s ±  2282.9kB/s ( 0.98%) (N = 200, α = 99.9%)
-silesia/osdb        246.4MB/s ±  1319.1kB/s ( 0.52%) (N = 200, α = 99.9%)
-silesia/reymont     214.0MB/s ±   791.6kB/s ( 0.36%) (N = 200, α = 99.9%)
-silesia/samba       340.3MB/s ±  1815.6kB/s ( 0.52%) (N = 200, α = 99.9%)
-silesia/sao         231.7MB/s ±  1008.4kB/s ( 0.42%) (N = 200, α = 99.9%)
-silesia/webster     211.9MB/s ±  1209.9kB/s ( 0.56%) (N = 200, α = 99.9%)
-silesia/x-ray       595.7MB/s ±  3553.0kB/s ( 0.58%) (N = 200, α = 99.9%)
-silesia/xml         444.8MB/s ±  2981.3kB/s ( 0.65%) (N = 200, α = 99.9%)
+silesia/dickens     185.7MB/s ±  1000.3kB/s ( 0.53%) (N = 200, α = 99.9%)
+silesia/mozilla     298.1MB/s ±  1316.7kB/s ( 0.43%) (N = 200, α = 99.9%)
+silesia/mr          280.3MB/s ±  1657.4kB/s ( 0.58%) (N = 200, α = 99.9%)
+silesia/nci         563.4MB/s ±  3449.1kB/s ( 0.60%) (N = 200, α = 99.9%)
+silesia/ooffice     227.4MB/s ±  1411.2kB/s ( 0.61%) (N = 200, α = 99.9%)
+silesia/osdb        244.6MB/s ±  2113.7kB/s ( 0.84%) (N = 200, α = 99.9%)
+silesia/reymont     211.3MB/s ±  1024.5kB/s ( 0.47%) (N = 200, α = 99.9%)
+silesia/samba       342.9MB/s ±  1300.5kB/s ( 0.37%) (N = 200, α = 99.9%)
+silesia/sao         229.6MB/s ±  1370.7kB/s ( 0.58%) (N = 200, α = 99.9%)
+silesia/webster     211.7MB/s ±  1220.6kB/s ( 0.56%) (N = 200, α = 99.9%)
+silesia/x-ray       600.2MB/s ±  2755.5kB/s ( 0.45%) (N = 200, α = 99.9%)
+silesia/xml         434.7MB/s ±  3283.0kB/s ( 0.74%) (N = 200, α = 99.9%)
 ```
 
 #### Java 9
 ```
 Data                Throughput
-silesia/dickens     182.3MB/s ±  1222.1kB/s ( 0.65%) (N = 200, α = 99.9%)
-silesia/mozilla     282.1MB/s ±  1469.0kB/s ( 0.51%) (N = 200, α = 99.9%)
-silesia/mr          272.4MB/s ±  1182.2kB/s ( 0.42%) (N = 200, α = 99.9%)
-silesia/nci         575.3MB/s ±  2486.9kB/s ( 0.42%) (N = 200, α = 99.9%)
-silesia/ooffice     211.2MB/s ±  1877.2kB/s ( 0.87%) (N = 200, α = 99.9%)
-silesia/osdb        245.1MB/s ±  1949.4kB/s ( 0.78%) (N = 200, α = 99.9%)
-silesia/reymont     215.0MB/s ±   931.4kB/s ( 0.42%) (N = 200, α = 99.9%)
-silesia/samba       344.0MB/s ±  1678.5kB/s ( 0.48%) (N = 200, α = 99.9%)
-silesia/sao         225.2MB/s ±   842.8kB/s ( 0.37%) (N = 200, α = 99.9%)
-silesia/webster     209.9MB/s ±  1181.2kB/s ( 0.55%) (N = 200, α = 99.9%)
-silesia/x-ray       561.7MB/s ±  1361.8kB/s ( 0.24%) (N = 200, α = 99.9%)
-silesia/xml         423.5MB/s ±  1627.3kB/s ( 0.38%) (N = 200, α = 99.9%)
+silesia/dickens     181.7MB/s ±  1135.7kB/s ( 0.61%) (N = 200, α = 99.9%)
+silesia/mozilla     283.0MB/s ±  1540.3kB/s ( 0.53%) (N = 200, α = 99.9%)
+silesia/mr          273.1MB/s ±  1297.3kB/s ( 0.46%) (N = 200, α = 99.9%)
+silesia/nci         575.1MB/s ±  2429.0kB/s ( 0.41%) (N = 200, α = 99.9%)
+silesia/ooffice     211.7MB/s ±  2070.6kB/s ( 0.96%) (N = 200, α = 99.9%)
+silesia/osdb        245.1MB/s ±  1867.2kB/s ( 0.74%) (N = 200, α = 99.9%)
+silesia/reymont     215.5MB/s ±   593.6kB/s ( 0.27%) (N = 200, α = 99.9%)
+silesia/samba       343.7MB/s ±  1982.8kB/s ( 0.56%) (N = 200, α = 99.9%)
+silesia/sao         224.1MB/s ±   892.9kB/s ( 0.39%) (N = 200, α = 99.9%)
+silesia/webster     212.7MB/s ±  1049.4kB/s ( 0.48%) (N = 200, α = 99.9%)
+silesia/x-ray       554.8MB/s ±  2945.1kB/s ( 0.52%) (N = 200, α = 99.9%)
+silesia/xml         425.5MB/s ±  1564.5kB/s ( 0.36%) (N = 200, α = 99.9%)
 ```
 
 ### Decompression
@@ -72,35 +72,35 @@ silesia/xml         423.5MB/s ±  1627.3kB/s ( 0.38%) (N = 200, α = 99.9%)
 #### Java 8
 ```
 Data                Throughput
-silesia/dickens     1142.0MB/s ±  5103.1kB/s ( 0.44%) (N = 200, α = 99.9%)
-silesia/mozilla     1409.2MB/s ±  8199.4kB/s ( 0.57%) (N = 200, α = 99.9%)
-silesia/mr          1488.9MB/s ±  5264.7kB/s ( 0.35%) (N = 200, α = 99.9%)
-silesia/nci         2005.1MB/s ±    12.1MB/s ( 0.60%) (N = 200, α = 99.9%)
-silesia/ooffice     1332.4MB/s ±  7137.0kB/s ( 0.52%) (N = 200, α = 99.9%)
-silesia/osdb        1380.5MB/s ±  6194.3kB/s ( 0.44%) (N = 200, α = 99.9%)
-silesia/reymont     1131.0MB/s ±  5840.9kB/s ( 0.50%) (N = 200, α = 99.9%)
-silesia/samba       1544.8MB/s ±  9613.3kB/s ( 0.61%) (N = 200, α = 99.9%)
-silesia/sao         1867.3MB/s ±  7533.6kB/s ( 0.39%) (N = 200, α = 99.9%)
-silesia/webster     1057.6MB/s ±  5698.4kB/s ( 0.53%) (N = 200, α = 99.9%)
-silesia/x-ray       3861.1MB/s ±    33.9MB/s ( 0.88%) (N = 200, α = 99.9%)
-silesia/xml         1632.7MB/s ±  8161.6kB/s ( 0.49%) (N = 200, α = 99.9%)
+silesia/dickens     1137.2MB/s ±  7067.5kB/s ( 0.61%) (N = 200, α = 99.9%)
+silesia/mozilla     1399.0MB/s ±  7903.0kB/s ( 0.55%) (N = 200, α = 99.9%)
+silesia/mr          1478.1MB/s ±  8334.8kB/s ( 0.55%) (N = 200, α = 99.9%)
+silesia/nci         2038.9MB/s ±    11.7MB/s ( 0.57%) (N = 200, α = 99.9%)
+silesia/ooffice     1329.6MB/s ± 10065.0kB/s ( 0.74%) (N = 200, α = 99.9%)
+silesia/osdb        1373.8MB/s ±  4019.3kB/s ( 0.29%) (N = 200, α = 99.9%)
+silesia/reymont     1130.1MB/s ±  4929.3kB/s ( 0.43%) (N = 200, α = 99.9%)
+silesia/samba       1537.5MB/s ±  8928.8kB/s ( 0.57%) (N = 200, α = 99.9%)
+silesia/sao         1857.7MB/s ±    11.5MB/s ( 0.62%) (N = 200, α = 99.9%)
+silesia/webster     1072.7MB/s ±  7230.7kB/s ( 0.66%) (N = 200, α = 99.9%)
+silesia/x-ray       3822.6MB/s ±    36.5MB/s ( 0.95%) (N = 200, α = 99.9%)
+silesia/xml         1639.4MB/s ±  6431.7kB/s ( 0.38%) (N = 200, α = 99.9%)
 ```
 
 #### Java 9
 ```
 Data                Throughput
-silesia/dickens     1078.5MB/s ± 10032.3kB/s ( 0.91%) (N = 200, α = 99.9%)
-silesia/mozilla     1315.1MB/s ±  7127.6kB/s ( 0.53%) (N = 200, α = 99.9%)
-silesia/mr          1352.2MB/s ±    13.7MB/s ( 1.02%) (N = 200, α = 99.9%)
-silesia/nci         1932.7MB/s ±  8892.5kB/s ( 0.45%) (N = 200, α = 99.9%)
-silesia/ooffice     1271.5MB/s ±  5043.5kB/s ( 0.39%) (N = 200, α = 99.9%)
-silesia/osdb        1390.5MB/s ±  5303.0kB/s ( 0.37%) (N = 200, α = 99.9%)
-silesia/reymont     1048.1MB/s ±  3063.9kB/s ( 0.29%) (N = 200, α = 99.9%)
-silesia/samba       1432.7MB/s ±  7309.2kB/s ( 0.50%) (N = 200, α = 99.9%)
-silesia/sao         1752.9MB/s ±  7126.5kB/s ( 0.40%) (N = 200, α = 99.9%)
-silesia/webster     1088.9MB/s ±  6557.3kB/s ( 0.59%) (N = 200, α = 99.9%)
-silesia/x-ray       3458.3MB/s ±    24.1MB/s ( 0.70%) (N = 200, α = 99.9%)
-silesia/xml         1607.9MB/s ±  7771.7kB/s ( 0.47%) (N = 200, α = 99.9%)
+silesia/dickens     1058.7MB/s ±  7696.4kB/s ( 0.71%) (N = 200, α = 99.9%)
+silesia/mozilla     1315.6MB/s ±  7985.2kB/s ( 0.59%) (N = 200, α = 99.9%)
+silesia/mr          1360.7MB/s ±  5771.3kB/s ( 0.41%) (N = 200, α = 99.9%)
+silesia/nci         1930.7MB/s ±  9354.9kB/s ( 0.47%) (N = 200, α = 99.9%)
+silesia/ooffice     1270.9MB/s ±  4200.7kB/s ( 0.32%) (N = 200, α = 99.9%)
+silesia/osdb        1375.0MB/s ±  6446.9kB/s ( 0.46%) (N = 200, α = 99.9%)
+silesia/reymont     1039.4MB/s ±  4063.4kB/s ( 0.38%) (N = 200, α = 99.9%)
+silesia/samba       1425.0MB/s ±  5837.0kB/s ( 0.40%) (N = 200, α = 99.9%)
+silesia/sao         1739.4MB/s ±    12.2MB/s ( 0.70%) (N = 200, α = 99.9%)
+silesia/webster     1098.9MB/s ±  4343.0kB/s ( 0.39%) (N = 200, α = 99.9%)
+silesia/x-ray       3416.2MB/s ±    26.8MB/s ( 0.79%) (N = 200, α = 99.9%)
+silesia/xml         1602.2MB/s ±    10.4MB/s ( 0.65%) (N = 200, α = 99.9%)
 ```
 
 Full benchmark output:
@@ -115,7 +115,7 @@ Full benchmark output:
 mvn exec:exec \
    -Dexec.classpathScope=test \
    -Dexec.executable="java" \
-   -Dexec.args="-cp %classpath org.openjdk.jmh.Main io.airlift.compress.benchmark.CompressionBenchmark.decompress -p algorithm=airlift_lz4 -p name=silesia/mr -prof perfasm -f 1 -wi 10 -i 30"
+   -Dexec.args="-XX:+UseG1GC -cp %classpath org.openjdk.jmh.Main io.airlift.compress.benchmark.CompressionBenchmark.decompress -p algorithm=airlift_lz4 -p name=silesia/mr -prof perfasm -f 1 -wi 10 -i 30"
 ```
 
 * [Java 8](perf-8.txt)
