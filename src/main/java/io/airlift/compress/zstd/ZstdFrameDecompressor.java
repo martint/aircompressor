@@ -22,6 +22,12 @@ import io.airlift.slice.XxHash64;
 import java.util.Arrays;
 
 import static io.airlift.compress.zstd.BitStream.peekBits;
+import static io.airlift.compress.zstd.Constants.MAGIC_NUMBER;
+import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_BYTE;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.fail;
 import static io.airlift.compress.zstd.Util.mask;
@@ -33,7 +39,6 @@ class ZstdFrameDecompressor
     private static final int[] DEC_32_TABLE = {4, 1, 2, 1, 4, 4, 4, 4};
     private static final int[] DEC_64_TABLE = {0, 0, 0, -1, 0, 1, 2, 3};
 
-    private static final int MAGIC_NUMBER = 0xFD2FB528;
     private static final int V07_MAGIC_NUMBER = 0xFD2FB527;
 
     private static final int MIN_SEQUENCES_SIZE = 1;
@@ -43,13 +48,7 @@ class ZstdFrameDecompressor
 
     private static final int MAX_BLOCK_SIZE = 128 * 1024;
 
-    private static final int MIN_WINDOW_LOG = 10;
     private static final int MAX_WINDOW_SIZE = 1 << 23;
-
-    public static final int SIZE_OF_BYTE = 1;
-    public static final int SIZE_OF_SHORT = 2;
-    public static final int SIZE_OF_INT = 4;
-    public static final int SIZE_OF_LONG = 8;
 
     private static final long SIZE_OF_BLOCK_HEADER = 3;
 
