@@ -122,7 +122,7 @@ public class DoubleFastBlockCompressor
                         /* check prefix long +1 match */
                         long matchAddress2 = baseAddress + matchOffset2;
                         if (matchOffset2 > prefixLowestIndex && UNSAFE.getLong(inputBase, matchAddress2) == UNSAFE.getLong(inputBase, input + 1)) {
-                            matchLength = count(inputBase, input + 9, matchAddress2 + 8, inputEnd) + 8;
+                            matchLength = count(inputBase, input + 1 + SIZE_OF_LONG, matchAddress2 + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
                             input++;
                             offset = (int) (input - matchAddress2);
                             while (input > anchor && matchAddress2 > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, matchAddress2 - 1)) {
@@ -192,7 +192,7 @@ public class DoubleFastBlockCompressor
         return (int) (inputEnd - anchor);
     }
 
-    // Same as LZ4RawCompressor.count
+    // TODO: same as LZ4RawCompressor.count
     private static int count(Object inputBase, final long start, final long matchStart, final long matchLimit)
     {
         long current = start;
