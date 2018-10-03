@@ -23,4 +23,14 @@ public class Constants
     public static final int MAGIC_NUMBER = 0xFD2FB528;
 
     public static final int MIN_WINDOW_LOG = 10;
+    public static final int MAX_WINDOW_LOG = 31;
+
+    public static final int SIZE_OF_BLOCK_HEADER = 3;
+
+    public static final int MIN_SEQUENCES_SIZE = 1;
+    public static final int MIN_BLOCK_SIZE = 1 // block type tag
+            + 1 // min size of raw or rle length header
+            + MIN_SEQUENCES_SIZE;
+
+    public static final int REP_CODE_COUNT = 3;
 }

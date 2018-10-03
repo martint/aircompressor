@@ -13,12 +13,15 @@
  */
 package io.airlift.compress.zstd;
 
+import java.util.Arrays;
+
+import static io.airlift.compress.zstd.Constants.MAX_WINDOW_LOG;
 import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
+import static io.airlift.compress.zstd.Util.cycleLog;
 import static io.airlift.compress.zstd.Util.highestBit;
 
 public class CompressionParameters
 {
-    private static final int MAX_WINDOW_LOG = 31;
     private static final int MIN_HASH_LOG = 6;
 
     private static final int DEFAULT_COMPRESSION_LEVEL = 3;
@@ -138,15 +141,52 @@ public class CompressionParameters
     public enum Strategy
     {
         // from faster to stronger
-        FAST,
-        DFAST,
-        GREEDY,
-        LAZY,
-        LAZY2,
 
-        BTLAZY2,
-        BTOPT,
-        BTULTRA
+        // YC: fast is a "single probe" strategy : at every position, we attempt to find a match, and give up if we don't find any. similar to lz4.
+        FAST(BlockCompressor.UNSUPPORTED),
+
+        // YC: double_fast is a 2 attempts strategies. They are not symmetrical by the way. One attempt is "normal" while the second one looks for "long matches". It was
+        // empirically found that this was the best trade off. As can be guessed, it's slower than single-attempt, but find more and better matches, so compresses better.
+        DFAST(new DoubleFastBlockCompressor()),
+
+        // YC: greedy uses a hash chain strategy. Every position is hashed, and all positions with same hash are chained. The algorithm goes through all candidates. There are
+        // diminishing returns in going deeper and deeper, so after a nb of attempts (which can be selected), it abandons the search. The best (longest) match wins. If there is
+        // one winner, it's immediately encoded.
+        GREEDY(BlockCompressor.UNSUPPORTED),
+
+        // YC: lazy will do something similar to greedy, but will not encode immediately. It will search again at next position, in case it would find something better.
+        // It's actually fairly common to have a small match at position p hiding a more worthy one at position p+1. This obviously increases the search workload. But the
+        // resulting compressed stream generally contains larger matches, hence compresses better.
+        LAZY(BlockCompressor.UNSUPPORTED),
+        
+        // YC: lazy2 is same as lazy, but deeper. It will search at P, P+1 and then P+2 in case it would find something even better. More workload. Better matches.
+        LAZY2(BlockCompressor.UNSUPPORTED),
+
+        // YC: btlazy2 is like lazy2, but trades the hash chain for a binary tree. This becomes necessary, as the nb of attempts becomes prohibitively expensive. The binary tree
+        // complexity increases with log of search depth, instead of proportionally with search depth. So searching deeper in history quickly becomes the dominant operation.
+        // btlazy2 cuts into that. But it costs 2x more memory. It's also relatively "slow", even when trying to cut its parameters to make it perform faster. So it's really
+        // a high compression strategy.
+        BTLAZY2(BlockCompressor.UNSUPPORTED),
+
+        // YC: btopt is, well, a hell of lot more complex.
+        // It will compute and find multiple matches per position, will dynamically compare every path from point P to P+N, reverse the graph to find cheapest path, iterate on
+        // batches of overlapping matches, etc. It's much more expensive. But the compression ratio is also much better.
+        BTOPT(BlockCompressor.UNSUPPORTED),
+
+        // YC: btultra is about the same, but doesn't cut as many corners (btopt "abandons" more quickly unpromising little gains). Slower, stronger.
+        BTULTRA(BlockCompressor.UNSUPPORTED);
+
+        private final BlockCompressor compressor;
+
+        Strategy(BlockCompressor compressor)
+        {
+            this.compressor = compressor;
+        }
+
+        public BlockCompressor getCompressor()
+        {
+            return compressor;
+        }
     }
 
     public CompressionParameters(int windowLog, int chainLog, int hashLog, int searchLog, int searchLength, int targetLength, Strategy strategy)
@@ -225,10 +265,7 @@ public class CompressionParameters
             hashLog = defaultParameters.windowLog + 1;
         }
 
-        int cycleLog = hashLog;
-        if (strategy == Strategy.BTLAZY2 || strategy == Strategy.BTOPT || strategy == Strategy.BTULTRA) {
-            cycleLog = hashLog - 1;
-        }
+        int cycleLog = cycleLog(hashLog, strategy);
 
         if (cycleLog > windowLog) {
             chainLog -= (cycleLog - windowLog);
@@ -265,21 +302,24 @@ public class CompressionParameters
 
         return DEFAULT_COMPRESSION_PARAMETERS[table][row];
     }
-    
+
     public static void main(String[] args)
     {
-        CompressionParameters parameters = compute(0, 0);
+        Arrays.asList(0, 16 * 1024 - 1, 16 * 1024, 16 * 1024 + 1, 128 * 1024 - 1, 128 * 1024, 128 * 1024 + 1, 256 * 1024 - 1, 256 * 1024, 256 * 1024 + 1).stream()
+                .forEach(size -> {
+                    CompressionParameters parameters = compute(0, 0);
 
-        System.out.println(
-                String.format("windowLog=%d\nchainLog=%d\nhashLog=%d\nsearcLog=%d\nsearchLength=%d\ntargetLength=%d\nstrategy=%s\n",
-                        parameters.windowLog,
-                        parameters.chainLog,
-                        parameters.hashLog,
-                        parameters.searchLog,
-                        parameters.searchLength,
-                        parameters.targetLength,
-                        parameters.strategy
-                )
-        );
+                    System.out.println(
+                            String.format("size=windowLog=%d\tchainLog=%d\thashLog=%d\tsearcLog=%d\tsearchLength=%d\ttargetLength=%d\tstrategy=%s",
+                                    parameters.windowLog,
+                                    parameters.chainLog,
+                                    parameters.hashLog,
+                                    parameters.searchLog,
+                                    parameters.searchLength,
+                                    parameters.targetLength,
+                                    parameters.strategy
+                            )
+                    );
+                });
     }
 }

@@ -23,7 +23,10 @@ import java.util.Arrays;
 
 import static io.airlift.compress.zstd.BitStream.peekBits;
 import static io.airlift.compress.zstd.Constants.MAGIC_NUMBER;
+import static io.airlift.compress.zstd.Constants.MIN_BLOCK_SIZE;
+import static io.airlift.compress.zstd.Constants.MIN_SEQUENCES_SIZE;
 import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_BLOCK_HEADER;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_BYTE;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
@@ -41,21 +44,14 @@ class ZstdFrameDecompressor
 
     private static final int V07_MAGIC_NUMBER = 0xFD2FB527;
 
-    private static final int MIN_SEQUENCES_SIZE = 1;
-    private static final int MIN_BLOCK_SIZE = 1 // block type tag
-            + 1 // min size of raw or rle length header
-            + MIN_SEQUENCES_SIZE;
-
     private static final int MAX_BLOCK_SIZE = 128 * 1024;
 
     private static final int MAX_WINDOW_SIZE = 1 << 23;
 
-    private static final long SIZE_OF_BLOCK_HEADER = 3;
-
     // block types
-    private static final int RAW_BLOCK = 0;
-    private static final int RLE_BLOCK = 1;
-    private static final int COMPRESSED_BLOCK = 2;
+    public static final int RAW_BLOCK = 0;
+    public static final int RLE_BLOCK = 1;
+    public static final int COMPRESSED_BLOCK = 2;
 
     // literal block types
     private static final int RAW_LITERALS_BLOCK = 0;

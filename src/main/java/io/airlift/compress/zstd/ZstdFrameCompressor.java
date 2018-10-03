@@ -19,7 +19,10 @@ import io.airlift.slice.UnsafeSliceFactory;
 import io.airlift.slice.XxHash64;
 
 import static io.airlift.compress.zstd.Constants.MAGIC_NUMBER;
+import static io.airlift.compress.zstd.Constants.MAX_WINDOW_LOG;
+import static io.airlift.compress.zstd.Constants.MIN_BLOCK_SIZE;
 import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_BLOCK_HEADER;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
@@ -32,6 +35,10 @@ public class ZstdFrameCompressor
     private static final int CHECKSUM_FLAG = 0b100;
     private static final int SINGLE_SEGMENT_FLAG = 0b100000;
 
+    public static final int MAX_BLOCK_SIZE = 1 << 17;
+
+    private static final long CURRENT_MAX = ((3L << 29) + (1L << MAX_WINDOW_LOG));
+
     static int writeMagic(final Object outputBase, final long outputAddress, final long outputLimit)
     {
         verify(outputLimit - outputAddress >= SIZE_OF_INT, outputAddress, "Output buffer too small");
@@ -39,7 +46,6 @@ public class ZstdFrameCompressor
         UNSAFE.putInt(outputBase, outputAddress, MAGIC_NUMBER);
         return SIZE_OF_INT;
     }
-
 
     static int writeFrameHeader(final Object outputBase, final long outputAddress, final long outputLimit, int inputSize, int windowSize)
     {
@@ -68,13 +74,13 @@ public class ZstdFrameCompressor
 
             int remainder = windowSize - base;
             if (remainder % (base / 8) != 0) {
-                throw new IllegalArgumentException("Window size of magnitude 2^" + exponent +" must be multiple of " + (base / 8));
+                throw new IllegalArgumentException("Window size of magnitude 2^" + exponent + " must be multiple of " + (base / 8));
             }
 
             // mantissa is guaranteed to be between 0-7
             int mantissa = remainder / (base / 8);
             int encoded = ((exponent - MIN_WINDOW_LOG) << 3) | mantissa;
-            
+
             UNSAFE.putByte(outputBase, output, (byte) encoded);
             output++;
         }
@@ -103,7 +109,7 @@ public class ZstdFrameCompressor
     static int writeChecksum(Object outputBase, long outputAddress, long outputLimit, Object inputBase, long inputAddress, long inputLimit)
     {
         verify(outputLimit - outputAddress >= SIZE_OF_INT, outputAddress, "Output buffer too small");
-        
+
         int inputSize = (int) (inputLimit - inputAddress);
 
         Slice slice = Slices.EMPTY_SLICE;
@@ -114,7 +120,7 @@ public class ZstdFrameCompressor
         long hash = XxHash64.hash(0, slice);
 
         UNSAFE.putInt(outputBase, outputAddress, (int) hash);
-        
+
         return SIZE_OF_INT;
     }
 
@@ -133,9 +139,164 @@ public class ZstdFrameCompressor
             return (int) (output - outputAddress);
         }
 
-        // TODO: compress
+        output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, outputAddress, outputLimit, parameters);
 
         output += writeChecksum(outputBase, output, outputLimit, inputBase, inputAddress, inputLimit);
         return (int) (output - outputAddress);
+    }
+
+    private static int compressFrame(Object inputBase, long inputAddress, long inputLimit, Object outputBase, long outputAddress, long outputLimit, CompressionParameters parameters)
+    {
+        int windowSize = 1 << parameters.getWindowLog(); // TODO: store window size in parameters directly?
+        int blockSize = Math.min(MAX_BLOCK_SIZE, windowSize);
+
+        int outputSize = (int) (outputLimit - outputAddress);
+        int remaining = (int) (inputLimit - inputAddress);
+
+        long output = outputAddress;
+        long input = inputAddress;
+
+        Context context = new Context(parameters, remaining);
+        context.matchState.window = new Window();
+        context.matchState.window.baseAddress = inputAddress;
+
+        while (remaining > 0) {
+            int lastBlockFlag = blockSize >= remaining ? 1 : 0;
+
+            verify(outputSize >= SIZE_OF_BLOCK_HEADER + MIN_BLOCK_SIZE, output, "Output buffer too small");
+
+            if (remaining < blockSize) {
+                blockSize = remaining;
+            }
+
+//                 TODO
+//            if (needsOverflowCorrection(windowBase, input + blockSize)) {
+//                int cycleLog = cycleLog(parameters.getChainLog(), parameters.getStrategy());
+//                int correction = ZSTD_window_correctOverflow(&ms->window, cycleLog, maxDist, ip);
+//
+//                ZSTD_reduceIndex(cctx, correction);
+//                if (ms->nextToUpdate < correction) ms->nextToUpdate = 0;
+//                else ms->nextToUpdate -= correction;
+//                ms->loadedDictEnd = 0;
+//                ms->dictMatchState = NULL;
+//            }
+
+//            ZSTD_window_enforceMaxDist(&ms->window, ip + blockSize, maxDist, &ms->loadedDictEnd, &ms->dictMatchState);
+            enforceMaxDistance(context.matchState.window, input + blockSize, 1 << parameters.getWindowLog());
+
+//            ZSTD_window_enforceMaxDist(&ms->window, ip + blockSize, maxDist, &ms->loadedDictEnd, &ms->dictMatchState);
+//
+//            if (ms->nextToUpdate < ms->window.lowLimit) {
+//                ms->nextToUpdate = ms->window.lowLimit;
+//            }
+
+            int compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
+
+            //ZSTD_compressBlock_internal(cctx, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, input, blockSize);
+
+//            if (ZSTD_isError(cSize)) {
+//                return cSize;
+//            }
+
+            if (compressedSize == 0) {  /* block is not compressible */
+                verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
+
+                int blockHeader = lastBlockFlag | (ZstdFrameDecompressor.RAW_BLOCK << 1) | (blockSize << 3);
+
+                UNSAFE.putInt(outputBase, output, blockHeader); /* 4th byte will be overwritten */
+                UNSAFE.copyMemory(inputBase, input, outputBase, output + SIZE_OF_BLOCK_HEADER, blockSize);
+
+                compressedSize = SIZE_OF_BLOCK_HEADER + blockSize;
+            }
+            else {
+                int blockHeader = lastBlockFlag | (ZstdFrameDecompressor.COMPRESSED_BLOCK << 1) | (compressedSize << 3);
+
+                // write 24 bits
+                UNSAFE.putShort(outputBase, output, (short) blockHeader);
+                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
+
+                compressedSize += SIZE_OF_BLOCK_HEADER;
+            }
+
+            input += blockSize;
+            remaining -= blockSize;
+            output += compressedSize;
+            outputSize -= compressedSize;
+        }
+
+        return (int) (output - outputAddress);
+    }
+
+    private static void enforceMaxDistance(Window window, long sourceEnd, int maxDistance)
+    {
+        int currentDistance = (int) (sourceEnd - window.baseAddress);
+
+        int newLowLimit = currentDistance - maxDistance;
+        if (window.lowLimit < newLowLimit) {
+            window.lowLimit = newLowLimit;
+        }
+        if (window.dictLimit < window.lowLimit) {
+            window.dictLimit = window.lowLimit;
+        }
+    }
+
+    private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, Context context, CompressionParameters parameters)
+    {
+        if (inputSize < MIN_BLOCK_SIZE + SIZE_OF_BLOCK_HEADER + 1) {
+            //  don't even attempt compression below a certain input size
+            return 0;
+        }
+
+/*
+        ZSTD_matchState_t* const ms = &zc->blockState.matchState;
+        ZSTD_resetSeqStore(&(zc->seqStore));
+        ms->opt.symbolCosts = &zc->blockState.prevCBlock->entropy;   *//* required for optimal parser to read stats from dictionary *//*
+
+     *//* limited update after a very long match *//*
+        const BYTE* const base = ms->window.base;
+        const BYTE* const istart = (const BYTE*)src;
+        const U32 current = (U32)(istart-base);
+        if (sizeof(ptrdiff_t)==8) assert(istart - base < (ptrdiff_t)(U32)(-1));   *//* ensure no overflow *//*
+        if (current > ms->nextToUpdate + 384) {
+            ms -> nextToUpdate = current - MIN(192, (U32) (current - ms -> nextToUpdate - 384));
+        }
+        */
+
+        for (int i = 0; i < Constants.REP_CODE_COUNT; i++) {
+            context.blockState.next.rep[i] = context.blockState.previous.rep[i];
+        }
+
+        int lastLiteralsSize = parameters.getStrategy().getCompressor().compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);
+        long lastLiteralsAddress = inputAddress + inputSize - lastLiteralsSize;
+
+        // append [lastLiteralsAddress .. lastLiteralsSize] to sequenceStore literals buffer
+        context.sequenceStore.appendLiterals(inputBase, lastLiteralsAddress, lastLiteralsSize);
+
+        // TODO
+        int compressedSize = 0;
+
+        /*
+         *//* encode sequences and literals *//*
+        size_t const cSize = ZSTD_compressSequences(&zc->seqStore, &zc->blockState.prevCBlock->entropy, &zc->blockState.nextCBlock->entropy, &zc->appliedParams, dst, dstCapacity, srcSize, zc->entropyWorkspace, zc->bmi2);
+
+        if (ZSTD_isError(cSize) || cSize == 0) {
+            return cSize;
+        }
+
+        *//* confirm repcodes and entropy tables *//*
+        ZSTD_compressedBlockState_t* const tmp = zc->blockState.prevCBlock;
+        zc->blockState.prevCBlock = zc->blockState.nextCBlock;
+        zc->blockState.nextCBlock = tmp;
+        */
+
+        return compressedSize;
+    }
+
+    /**
+     * Returns true if the indices are getting too large and need overflow protection.
+     */
+    private static boolean needsOverflowCorrection(long windowBase, long inputLimit)
+    {
+        return inputLimit - windowBase > CURRENT_MAX;
     }
 }

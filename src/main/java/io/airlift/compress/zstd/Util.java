@@ -47,4 +47,13 @@ class Util
     {
         throw new MalformedInputException(offset, reason);
     }
+
+    public static int cycleLog(int hashLog, CompressionParameters.Strategy strategy)
+    {
+        int cycleLog = hashLog;
+        if (strategy == CompressionParameters.Strategy.BTLAZY2 || strategy == CompressionParameters.Strategy.BTOPT || strategy == CompressionParameters.Strategy.BTULTRA) {
+            cycleLog = hashLog - 1;
+        }
+        return cycleLog;
+    }
 }
