@@ -199,12 +199,6 @@ class ZstdFrameCompressor
 
             int compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
 
-            //ZSTD_compressBlock_internal(cctx, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, input, blockSize);
-
-//            if (ZSTD_isError(cSize)) {
-//                return cSize;
-//            }
-
             if (compressedSize == 0) {  /* block is not compressible */
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
@@ -307,6 +301,8 @@ class ZstdFrameCompressor
         return inputLimit - windowBase > CURRENT_MAX;
     }
 
+
+    
     public static void main(String[] args)
             throws Exception
     {
@@ -314,9 +310,7 @@ class ZstdFrameCompressor
         byte[] compressed = new byte[data.length * 2];
         byte[] decompressed = new byte[data.length];
 
-
         int compressedSize = ZstdFrameCompressor.compress(data, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + data.length, compressed, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + compressed.length, 3);
-
 
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 
