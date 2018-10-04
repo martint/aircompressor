@@ -13,7 +13,7 @@
  */
 package io.airlift.compress.zstd;
 
-public class CompressedBlockState
+class CompressedBlockState
 {
     public int rep[] = new int[] {1, 4, 8};
     public Entropy entropy = new Entropy(); // TODO

@@ -13,7 +13,7 @@
  */
 package io.airlift.compress.zstd;
 
-public class Window
+class Window
 {
     long baseAddress;
     int lowLimit;

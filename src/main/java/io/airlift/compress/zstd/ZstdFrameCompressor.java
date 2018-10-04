@@ -35,7 +35,7 @@ import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-public class ZstdFrameCompressor
+class ZstdFrameCompressor
 {
     static final int MAX_FRAME_HEADER_SIZE = 14;
 
@@ -163,7 +163,7 @@ public class ZstdFrameCompressor
         long output = outputAddress;
         long input = inputAddress;
 
-        Context context = new Context(parameters, remaining);
+        CompressionContext context = new CompressionContext(parameters, remaining);
         context.matchState.window = new Window();
         context.matchState.window.baseAddress = inputAddress;
 
@@ -247,7 +247,7 @@ public class ZstdFrameCompressor
         }
     }
 
-    private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, Context context, CompressionParameters parameters)
+    private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, CompressionContext context, CompressionParameters parameters)
     {
         if (inputSize < MIN_BLOCK_SIZE + SIZE_OF_BLOCK_HEADER + 1) {
             //  don't even attempt compression below a certain input size

@@ -20,7 +20,7 @@ import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
 import static io.airlift.compress.zstd.Util.cycleLog;
 import static io.airlift.compress.zstd.Util.highestBit;
 
-public class CompressionParameters
+class CompressionParameters
 {
     private static final int MIN_HASH_LOG = 6;
 

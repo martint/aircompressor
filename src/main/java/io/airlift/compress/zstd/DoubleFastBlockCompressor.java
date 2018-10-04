@@ -23,7 +23,7 @@ import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-public class DoubleFastBlockCompressor
+class DoubleFastBlockCompressor
         implements BlockCompressor
 {
     public static final int MIN_MATCH = 3;
@@ -281,7 +281,7 @@ public class DoubleFastBlockCompressor
         byte[] data = Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
         CompressionParameters parameters = CompressionParameters.compute(0, data.length);
 
-        Context context = new Context(parameters, data.length);
+        CompressionContext context = new CompressionContext(parameters, data.length);
 
         DoubleFastBlockCompressor compressor = new DoubleFastBlockCompressor();
         System.out.println(compressor.compressBlock(data, ARRAY_BYTE_BASE_OFFSET, context.blockSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters));

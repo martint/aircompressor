@@ -13,7 +13,7 @@
  */
 package io.airlift.compress.zstd;
 
-public class BlockState
+class BlockState
 {
     public CompressedBlockState previous;
     public CompressedBlockState next;

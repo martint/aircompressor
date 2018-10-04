@@ -18,7 +18,7 @@ import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-public class SequenceCompressor
+class SequenceCompressor
 {
     // TODO: also in ZstdFrameDecompressor
     private static final int SET_BASIC = 0;

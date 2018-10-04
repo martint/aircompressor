@@ -16,7 +16,7 @@ package io.airlift.compress.zstd;
 import static io.airlift.compress.zstd.ZstdFrameCompressor.MAX_BLOCK_SIZE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-public class Context
+public class CompressionContext
 {
     private static final int ZSTD_BLOCKSIZELOG_MAX = 17;
     private static final int ZSTD_BLOCKSIZE_MAX = (1 << ZSTD_BLOCKSIZELOG_MAX);   /* define, for static allocation */
@@ -28,7 +28,7 @@ public class Context
 
     public final int blockSize;
 
-    public Context(CompressionParameters parameters, int inputSize)
+    public CompressionContext(CompressionParameters parameters, int inputSize)
     {
         int windowSize = Math.max(1, Math.min(1 << parameters.getWindowLog(), inputSize));
         int blockSize = Math.min(MAX_BLOCK_SIZE, windowSize);
