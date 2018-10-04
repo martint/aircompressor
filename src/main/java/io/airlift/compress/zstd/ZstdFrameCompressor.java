@@ -275,10 +275,7 @@ class ZstdFrameCompressor
         // append [lastLiteralsAddress .. lastLiteralsSize] to sequenceStore literals buffer
         context.sequenceStore.appendLiterals(inputBase, lastLiteralsAddress, lastLiteralsSize);
 
-        // TODO
-        int compressedSize = 0;
-
-        compressedSize = new SequenceCompressor().compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize, new int[0]);
+        int compressedSize = new SequenceCompressor().compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize, new int[0]);
 
         if (compressedSize == 0) {
             // not compressible

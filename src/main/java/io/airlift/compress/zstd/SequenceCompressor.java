@@ -294,6 +294,7 @@ class SequenceCompressor
 
     private int rawLiterals(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize)
     {
+// TODO: alternate implementation -- benchmark
 //        int headerSize = 1;
 //        if (inputSize > 31) {
 //            headerSize++;
@@ -385,125 +386,91 @@ class SequenceCompressor
         return new Histogram(maxSymbol, largestCount, counts);
     }
 
-//
-//    /* HIST_countFast_wksp() :
-//     * Same as HIST_countFast(), but using an externally provided scratch buffer.
-//     * `workSpace` size must be table of >= HIST_WKSP_SIZE_U32 unsigned */
-//    size_t HIST_countFast_wksp(unsigned* count, unsigned* maxSymbolValuePtr,
-//                          const void* source, size_t sourceSize,
-//            unsigned* workSpace)
-//    {
-//        if (sourceSize < 1500) /* heuristic threshold */
-//            return HIST_count_simple(count, maxSymbolValuePtr, source, sourceSize);
-//        return HIST_count_parallel_wksp(count, maxSymbolValuePtr, source, sourceSize, 0, workSpace);
-//    }
-//
-//    unsigned HIST_count_simple(unsigned* count, unsigned* maxSymbolValuePtr,
-//                           const void* src, size_t srcSize)
-//    {
-//    const BYTE* ip = (const BYTE*)src;
-//    const BYTE* const end = ip + srcSize;
-//        unsigned maxSymbolValue = *maxSymbolValuePtr;
-//        unsigned largestCount=0;
-//
-//        memset(count, 0, (maxSymbolValue+1) * sizeof(*count));
-//        if (srcSize==0) { *maxSymbolValuePtr = 0; return 0; }
-//
-//        while (ip<end) {
-//            assert(*ip <= maxSymbolValue);
-//            count[*ip++]++;
-//        }
-//
-//        while (!count[maxSymbolValue]) maxSymbolValue--;
-//    *maxSymbolValuePtr = maxSymbolValue;
-//
-//        {   U32 s;
-//            for (s=0; s<=maxSymbolValue; s++)
-//                if (count[s] > largestCount) largestCount = count[s];
-//        }
-//
-//        return largestCount;
-//    }
-//
-//    /* HIST_count_parallel_wksp() :
-//     * store histogram into 4 intermediate tables, recombined at the end.
-//     * this design makes better use of OoO cpus,
-//     * and is noticeably faster when some values are heavily repeated.
-//     * But it needs some additional workspace for intermediate tables.
-//     * `workSpace` size must be a table of size >= HIST_WKSP_SIZE_U32.
-//     * @return : largest histogram frequency,
-//     *           or an error code (notably when histogram would be larger than *maxSymbolValuePtr). */
-//    static size_t HIST_count_parallel_wksp(
-//            unsigned* count, unsigned* maxSymbolValuePtr,
-//                                const void* source, size_t sourceSize,
-//            unsigned checkMax,
-//            unsigned* const workSpace)
-//    {
-//    const BYTE* ip = (const BYTE*)source;
-//    const BYTE* const iend = ip+sourceSize;
-//        unsigned maxSymbolValue = *maxSymbolValuePtr;
-//        unsigned max=0;
-//        U32* const Counting1 = workSpace;
-//        U32* const Counting2 = Counting1 + 256;
-//        U32* const Counting3 = Counting2 + 256;
-//        U32* const Counting4 = Counting3 + 256;
-//
-//        memset(workSpace, 0, 4*256*sizeof(unsigned));
-//
-//        /* safety checks */
-//        if (!sourceSize) {
-//            memset(count, 0, maxSymbolValue + 1);
-//        *maxSymbolValuePtr = 0;
-//            return 0;
-//        }
-//        if (!maxSymbolValue) maxSymbolValue = 255;            /* 0 == default */
-//
-//        /* by stripes of 16 bytes */
-//        {   U32 cached = MEM_read32(ip); ip += 4;
-//            while (ip < iend-15) {
-//                U32 c = cached; cached = MEM_read32(ip); ip += 4;
-//                Counting1[(BYTE) c     ]++;
-//                Counting2[(BYTE)(c>>8) ]++;
-//                Counting3[(BYTE)(c>>16)]++;
-//                Counting4[       c>>24 ]++;
-//                c = cached; cached = MEM_read32(ip); ip += 4;
-//                Counting1[(BYTE) c     ]++;
-//                Counting2[(BYTE)(c>>8) ]++;
-//                Counting3[(BYTE)(c>>16)]++;
-//                Counting4[       c>>24 ]++;
-//                c = cached; cached = MEM_read32(ip); ip += 4;
-//                Counting1[(BYTE) c     ]++;
-//                Counting2[(BYTE)(c>>8) ]++;
-//                Counting3[(BYTE)(c>>16)]++;
-//                Counting4[       c>>24 ]++;
-//                c = cached; cached = MEM_read32(ip); ip += 4;
-//                Counting1[(BYTE) c     ]++;
-//                Counting2[(BYTE)(c>>8) ]++;
-//                Counting3[(BYTE)(c>>16)]++;
-//                Counting4[       c>>24 ]++;
-//            }
-//            ip-=4;
-//        }
-//
-//        /* finish last symbols */
-//        while (ip<iend) Counting1[*ip++]++;
-//
-//        if (checkMax) {   /* verify stats will fit into destination table */
-//            U32 s; for (s=255; s>maxSymbolValue; s--) {
-//                Counting1[s] += Counting2[s] + Counting3[s] + Counting4[s];
-//                if (Counting1[s]) return ERROR(maxSymbolValue_tooSmall);
-//            }   }
-//
-//        {   U32 s;
-//            if (maxSymbolValue > 255) maxSymbolValue = 255;
-//            for (s=0; s<=maxSymbolValue; s++) {
-//                count[s] = Counting1[s] + Counting2[s] + Counting3[s] + Counting4[s];
-//                if (count[s] > max) max = count[s];
-//            }   }
-//
-//        while (!count[maxSymbolValue]) maxSymbolValue--;
-//    *maxSymbolValuePtr = maxSymbolValue;
-//        return (size_t)max;
-//    }
 
+//    MEM_STATIC symbolEncodingType_e ZSTD_selectEncodingType(
+//            FSE_repeat* repeatMode,
+//            unsigned const* count,
+//            unsigned const max,
+//            size_t const mostFrequent,
+//            size_t nbSeq,
+//            unsigned const FSELog,
+//            FSE_CTable const* prevCTable,
+//            short const* defaultNorm,
+//            U32 defaultNormLog,
+//            ZSTD_defaultPolicy_e const isDefaultAllowed,
+//            ZSTD_strategy const strategy)
+//    {
+//        if (mostFrequent == nbSeq) {
+//            *repeatMode = FSE_repeat_none;
+//            if (isDefaultAllowed && nbSeq <= 2) {
+//                /* Prefer set_basic over set_rle when there are 2 or less symbols,
+//                 * since RLE uses 1 byte, but set_basic uses 5-6 bits per symbol.
+//                 * If basic encoding isn't possible, always choose RLE.
+//                 */
+//                DEBUGLOG(5, "Selected set_basic");
+//                return set_basic;
+//            }
+//            DEBUGLOG(5, "Selected set_rle");
+//            return set_rle;
+//        }
+//        if (strategy < ZSTD_lazy) {
+//            if (isDefaultAllowed) {
+//                size_t const staticFse_nbSeq_max = 1000;
+//                size_t const mult = 10 - strategy;
+//                size_t const baseLog = 3;
+//                size_t const dynamicFse_nbSeq_min = (((size_t)1 << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
+//                assert(defaultNormLog >= 5 && defaultNormLog <= 6);  /* xx_DEFAULTNORMLOG */
+//                assert(mult <= 9 && mult >= 7);
+
+//                if ( (*repeatMode == FSE_repeat_valid) && (nbSeq < staticFse_nbSeq_max) ) {
+//                    DEBUGLOG(5, "Selected set_repeat");
+//                    return set_repeat;
+//                }
+    
+//                if ( (nbSeq < dynamicFse_nbSeq_min) || (mostFrequent < (nbSeq >> (defaultNormLog-1))) ) {
+//                    DEBUGLOG(5, "Selected set_basic");
+//                    /* The format allows default tables to be repeated, but it isn't useful.
+//                     * When using simple heuristics to select encoding type, we don't want
+//                     * to confuse these tables with dictionaries. When running more careful
+//                     * analysis, we don't need to waste time checking both repeating tables
+//                     * and default tables.
+//                     */
+//                    *repeatMode = FSE_repeat_none;
+//                    return set_basic;
+//                }
+//            }
+//        }
+//        else {
+//            size_t const basicCost = isDefaultAllowed ? ZSTD_crossEntropyCost(defaultNorm, defaultNormLog, count, max) : ERROR(GENERIC);
+//            size_t const repeatCost = *repeatMode != FSE_repeat_none ? ZSTD_fseBitCost(prevCTable, count, max) : ERROR(GENERIC);
+//            size_t const NCountCost = ZSTD_NCountCost(count, max, nbSeq, FSELog);
+//            size_t const compressedCost = (NCountCost << 3) + ZSTD_entropyCost(count, max, nbSeq);
+//
+//            if (isDefaultAllowed) {
+//                assert(!ZSTD_isError(basicCost));
+//                assert(!(*repeatMode == FSE_repeat_valid && ZSTD_isError(repeatCost)));
+//            }
+    
+//            assert(!ZSTD_isError(NCountCost));
+//            assert(compressedCost < ERROR(maxCode));
+//            DEBUGLOG(5, "Estimated bit costs: basic=%u\trepeat=%u\tcompressed=%u", (U32)basicCost, (U32)repeatCost, (U32)compressedCost);
+
+//            if (basicCost <= repeatCost && basicCost <= compressedCost) {
+//                DEBUGLOG(5, "Selected set_basic");
+//                assert(isDefaultAllowed);
+//                *repeatMode = FSE_repeat_none;
+//                return set_basic;
+//            }
+
+//            if (repeatCost <= compressedCost) {
+//                DEBUGLOG(5, "Selected set_repeat");
+//                assert(!ZSTD_isError(repeatCost));
+//                return set_repeat;
+//            }
+//            assert(compressedCost < basicCost && compressedCost < repeatCost);
+//        }
+//        DEBUGLOG(5, "Selected set_compressed");
+//        *repeatMode = FSE_repeat_check;
+//        return set_compressed;
+//    }
 }
