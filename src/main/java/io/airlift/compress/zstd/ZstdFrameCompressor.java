@@ -43,6 +43,10 @@ class ZstdFrameCompressor
 
     private static final long CURRENT_MAX = ((3L << 29) + (1L << MAX_WINDOW_LOG));
 
+    private ZstdFrameCompressor()
+    {
+    }
+
     static int writeMagic(final Object outputBase, final long outputAddress, final long outputLimit)
     {
         verify(outputLimit - outputAddress >= SIZE_OF_INT, outputAddress, "Output buffer too small");
@@ -278,7 +282,7 @@ class ZstdFrameCompressor
             // not compressible
             return compressedSize;
         }
-        
+
         /* confirm repcodes and entropy tables */
         CompressedBlockState temp = context.blockState.previous;
         context.blockState.previous = context.blockState.next;
@@ -295,8 +299,6 @@ class ZstdFrameCompressor
         return inputLimit - windowBase > CURRENT_MAX;
     }
 
-
-    
     public static void main(String[] args)
             throws Exception
     {

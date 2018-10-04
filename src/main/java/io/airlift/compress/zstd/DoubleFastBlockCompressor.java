@@ -139,7 +139,7 @@ class DoubleFastBlockCompressor
                                 input--;
                                 shortMatchAddress--;
                                 matchLength++;
-                            } 
+                            }
                         }
                     }
                     else {
@@ -159,7 +159,7 @@ class DoubleFastBlockCompressor
 
             if (input <= inputLimit) {
                 /* Fill Table */
-                longHashTable[(int) hash8(UNSAFE.getLong(inputBase, baseAddress + current + 2), longHashBits)] = current + 2; 
+                longHashTable[(int) hash8(UNSAFE.getLong(inputBase, baseAddress + current + 2), longHashBits)] = current + 2;
                 shortHashTable[hash(inputBase, baseAddress + current + 2, shortHashBits, matchSearchLength)] = current + 2;
 
                 longHashTable[(int) hash8(UNSAFE.getLong(inputBase, input - 2), longHashBits)] = (int) (input - 2 - baseAddress);
@@ -175,7 +175,7 @@ class DoubleFastBlockCompressor
 
                     shortHashTable[hash(inputBase, input, shortHashBits, matchSearchLength)] = (int) (input - baseAddress);
                     longHashTable[(int) hash8(UNSAFE.getLong(inputBase, input), longHashBits)] = (int) (input - baseAddress);
-                    
+
                     sequenceStore.storeSequence(inputBase, anchor, 0, 0, repetitionLength - MIN_MATCH);
 
                     input += repetitionLength;
@@ -230,17 +230,16 @@ class DoubleFastBlockCompressor
     private static int hash(Object inputBase, long inputAddress, int bits, int matchSearchLength)
     {
         switch (matchSearchLength) {
-            default:
-            case 4:
-                return hash4(UNSAFE.getInt(inputBase, inputAddress), bits);
-            case 5:
-                return (int) (hash5(UNSAFE.getLong(inputBase, inputAddress), bits));
-            case 6:
-                return (int) (hash6(UNSAFE.getLong(inputBase, inputAddress), bits));
-            case 7:
-                return (int) (hash7(UNSAFE.getLong(inputBase, inputAddress), bits));
             case 8:
                 return (int) (hash8(UNSAFE.getLong(inputBase, inputAddress), bits));
+            case 7:
+                return (int) (hash7(UNSAFE.getLong(inputBase, inputAddress), bits));
+            case 6:
+                return (int) (hash6(UNSAFE.getLong(inputBase, inputAddress), bits));
+            case 5:
+                return (int) (hash5(UNSAFE.getLong(inputBase, inputAddress), bits));
+            default:
+                return hash4(UNSAFE.getInt(inputBase, inputAddress), bits);
         }
     }
 

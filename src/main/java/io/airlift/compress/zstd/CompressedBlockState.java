@@ -15,19 +15,15 @@ package io.airlift.compress.zstd;
 
 class CompressedBlockState
 {
-    public int rep[] = new int[] {1, 4, 8};
+    public int[] rep = new int[] {1, 4, 8};
     public Entropy entropy = new Entropy(); // TODO
 
     public static class Entropy
     {
-        HuffmanTable huffman;
-        FseTables fse;
     }
 
     public static class FseTables
     {
-        public Object litlength_repeatMode; // TODO
-        public Object litlengthCTable;
     }
 
     public static class HuffmanTable

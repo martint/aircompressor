@@ -59,8 +59,8 @@ public class TestCompressor
         verifyFrameHeader(65536 + 256, 1024 + 128 * 7, new FrameHeader(6, 1024 + 128 * 7, 65536 + 256, -1, true));
         verifyFrameHeader(65536 + 256, 1024 + 128 * 8, new FrameHeader(6, 1024 + 128 * 8, 65536 + 256, -1, true));
 
-        verifyFrameHeader(65536 + 256, 2048 , new FrameHeader(6, 2048, 65536 + 256, -1, true));
-        
+        verifyFrameHeader(65536 + 256, 2048, new FrameHeader(6, 2048, 65536 + 256, -1, true));
+
         verifyFrameHeader(Integer.MAX_VALUE, 1024, new FrameHeader(6, 1024, Integer.MAX_VALUE, -1, true));
     }
 
@@ -90,7 +90,7 @@ public class TestCompressor
         int size = ZstdFrameCompressor.writeFrameHeader(buffer, address, address + buffer.length, inputSize, windowSize);
 
         assertEquals(size, expected.headerSize);
-        
+
         FrameHeader actual = ZstdFrameDecompressor.readFrameHeader(buffer, address, address + buffer.length);
         assertEquals(actual, expected);
     }

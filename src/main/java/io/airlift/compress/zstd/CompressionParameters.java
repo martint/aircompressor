@@ -35,7 +35,7 @@ class CompressionParameters
     private final int targetLength; // acceptable match size for optimal parser (only) : larger == more compression, slower
     private final Strategy strategy;
 
-    private static CompressionParameters[][] DEFAULT_COMPRESSION_PARAMETERS = new CompressionParameters[][] {
+    private static final CompressionParameters[][] DEFAULT_COMPRESSION_PARAMETERS = new CompressionParameters[][] {
             {   // default
                 new CompressionParameters(19, 12, 13, 1, 6, 1, Strategy.FAST),  /* base for negative levels */
                 new CompressionParameters(19, 13, 14, 1, 7, 0, Strategy.FAST),  /* level  1 */
@@ -158,7 +158,7 @@ class CompressionParameters
         // It's actually fairly common to have a small match at position p hiding a more worthy one at position p+1. This obviously increases the search workload. But the
         // resulting compressed stream generally contains larger matches, hence compresses better.
         LAZY(BlockCompressor.UNSUPPORTED),
-        
+
         // YC: lazy2 is same as lazy, but deeper. It will search at P, P+1 and then P+2 in case it would find something even better. More workload. Better matches.
         LAZY2(BlockCompressor.UNSUPPORTED),
 

@@ -17,6 +17,7 @@ import io.airlift.compress.Compressor;
 
 import java.nio.ByteBuffer;
 
+import static io.airlift.compress.zstd.Constants.MAX_BLOCK_SIZE;
 import static io.airlift.compress.zstd.UnsafeUtil.getAddress;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -26,8 +27,6 @@ public class ZstdCompressor
     @Override
     public int maxCompressedLength(int uncompressedSize)
     {
-        int MAX_BLOCK_SIZE = 128 << 10;
-
         int result = uncompressedSize + (uncompressedSize >>> 8);
 
         if (uncompressedSize < MAX_BLOCK_SIZE) {

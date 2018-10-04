@@ -39,8 +39,13 @@ public class Constants
     public static final int RLE_BLOCK = 1;
     public static final int COMPRESSED_BLOCK = 2;
 
-
     static final int MAX_LITERALS_LENGTH_SYMBOL = 35;
     static final int MAX_MATCH_LENGTH_SYMBOL = 52;
     static final int MAX_OFFSET_CODE_SYMBOL = 28;
+
+    public static final int MAX_BLOCK_SIZE = 1 << 17;
+
+    private Constants()
+    {
+    }
 }
