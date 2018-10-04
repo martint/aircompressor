@@ -160,7 +160,8 @@ class ZstdFrameCompressor
         context.matchState.window = new Window();
         context.matchState.window.baseAddress = inputAddress;
 
-        while (remaining > 0) {
+
+        do {
             verify(outputSize >= SIZE_OF_BLOCK_HEADER + MIN_BLOCK_SIZE, output, "Output buffer too small");
 
             int lastBlockFlag = blockSize >= remaining ? 1 : 0;
@@ -187,14 +188,18 @@ class ZstdFrameCompressor
 //                ms->nextToUpdate = ms->window.lowLimit;
 //            }
 
-            int compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
+            int compressedSize = 0;
+            if (remaining > 0) {
+                compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
+            }
 
             if (compressedSize == 0) {  /* block is not compressible */
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
                 int blockHeader = lastBlockFlag | (RAW_BLOCK << 1) | (blockSize << 3);
 
-                UNSAFE.putInt(outputBase, output, blockHeader); /* 4th byte will be overwritten */
+                UNSAFE.putShort(outputBase, output, (short) blockHeader);
+                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
                 UNSAFE.copyMemory(inputBase, input, outputBase, output + SIZE_OF_BLOCK_HEADER, blockSize);
 
                 compressedSize = SIZE_OF_BLOCK_HEADER + blockSize;
@@ -214,17 +219,7 @@ class ZstdFrameCompressor
             output += compressedSize;
             outputSize -= compressedSize;
         }
-
-        if (output == outputAddress) {
-            // nothing written, so write an empty block
-            verify(outputSize >= 3, input, "Output size too small");
-
-            // write 24 bits
-            int blockHeader = 1 /* last block */ | (RAW_BLOCK << 1);
-            UNSAFE.putShort(outputBase, output, (short) blockHeader);
-            UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
-            output += SIZE_OF_BLOCK_HEADER;
-        }
+        while (remaining > 0);
 
         return (int) (output - outputAddress);
     }
