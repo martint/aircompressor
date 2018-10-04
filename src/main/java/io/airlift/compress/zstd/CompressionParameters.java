@@ -24,7 +24,7 @@ class CompressionParameters
 {
     private static final int MIN_HASH_LOG = 6;
 
-    private static final int DEFAULT_COMPRESSION_LEVEL = 3;
+    public static final int DEFAULT_COMPRESSION_LEVEL = 3;
     private static final int MAX_COMPRESSION_LEVEL = 22;
 
     private final int windowLog; // largest match distance : larger == more compression, more memory needed during decompression
