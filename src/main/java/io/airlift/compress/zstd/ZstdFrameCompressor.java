@@ -139,9 +139,7 @@ class ZstdFrameCompressor
         output += writeMagic(outputBase, output, outputLimit);
         output += writeFrameHeader(outputBase, output, outputLimit, inputSize, 1 << parameters.getWindowLog());
 
-        if (inputSize > 0) {
-            output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, output, outputLimit, parameters);
-        }
+        output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, output, outputLimit, parameters);
 
         output += writeChecksum(outputBase, output, outputLimit, inputBase, inputAddress, inputLimit);
         return (int) (output - outputAddress);
@@ -163,13 +161,10 @@ class ZstdFrameCompressor
         context.matchState.window.baseAddress = inputAddress;
 
         while (remaining > 0) {
-            int lastBlockFlag = blockSize >= remaining ? 1 : 0;
-
             verify(outputSize >= SIZE_OF_BLOCK_HEADER + MIN_BLOCK_SIZE, output, "Output buffer too small");
 
-            if (remaining < blockSize) {
-                blockSize = remaining;
-            }
+            int lastBlockFlag = blockSize >= remaining ? 1 : 0;
+            blockSize = Math.min(blockSize, remaining);
 
 //                 TODO
 //            if (needsOverflowCorrection(windowBase, input + blockSize)) {
@@ -218,6 +213,17 @@ class ZstdFrameCompressor
             remaining -= blockSize;
             output += compressedSize;
             outputSize -= compressedSize;
+        }
+
+        if (output == outputAddress) {
+            // nothing written, so write an empty block
+            verify(outputSize >= 3, input, "Output size too small");
+
+            // write 24 bits
+            int blockHeader = 1 /* last block */ | (RAW_BLOCK << 1);
+            UNSAFE.putShort(outputBase, output, (short) blockHeader);
+            UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
+            output += SIZE_OF_BLOCK_HEADER;
         }
 
         return (int) (output - outputAddress);

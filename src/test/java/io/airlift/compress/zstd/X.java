@@ -21,19 +21,18 @@ public class X
             throws Exception
     {
         byte[] data = new byte[0]; //Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
-        byte[] compressed = new byte[data.length * 2 + 100];
-        byte[] compressed2 = new byte[data.length * 2 + 100];
-        byte[] decompressed = new byte[data.length];
+        byte[] compressed = new byte[data.length * 2 + 30];
+        byte[] compressed2 = new byte[data.length * 2 + 30];
+        byte[] decompressed = new byte[data.length * 2 + 30];
 
         int compressedSize = new ZstdJniCompressor(0).compress(data, 0, data.length, compressed, 0, compressed.length);
-
         int compressedSize2 = ZstdFrameCompressor.compress(data, 16, 16 + data.length, compressed2, 16, 16 + compressed2.length, 3);
 
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+//        int decompressedSize = new ZstdDecompressor().decompress(compressed2, 0, compressedSize2, decompressed, 0, decompressed.length);
+//        int decompressedSize2 = new ZstdJniDecompressor().decompress(compressed2, 0, compressedSize2, decompressed, 0, decompressed.length);
 
-        System.out.println("Original size:     " + data.length);
-        System.out.println("Compressed size:   " + compressedSize);
-        System.out.println("Decompressed size: " + decompressedSize);
+        System.out.println();
     }
 
 }
