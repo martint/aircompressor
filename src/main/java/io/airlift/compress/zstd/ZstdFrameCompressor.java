@@ -18,9 +18,6 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.UnsafeSliceFactory;
 import io.airlift.slice.XxHash64;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
 import static io.airlift.compress.zstd.Constants.COMPRESSED_BLOCK;
 import static io.airlift.compress.zstd.Constants.MAGIC_NUMBER;
 import static io.airlift.compress.zstd.Constants.MAX_WINDOW_LOG;
@@ -142,11 +139,9 @@ class ZstdFrameCompressor
         output += writeMagic(outputBase, output, outputLimit);
         output += writeFrameHeader(outputBase, output, outputLimit, inputSize, 1 << parameters.getWindowLog());
 
-        if (inputSize == 0) {
-            return (int) (output - outputAddress);
+        if (inputSize > 0) {
+            output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, output, outputLimit, parameters);
         }
-
-        output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, output, outputLimit, parameters);
 
         output += writeChecksum(outputBase, output, outputLimit, inputBase, inputAddress, inputLimit);
         return (int) (output - outputAddress);
@@ -304,8 +299,8 @@ class ZstdFrameCompressor
     public static void main(String[] args)
             throws Exception
     {
-        byte[] data = Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
-        byte[] compressed = new byte[data.length * 2];
+        byte[] data = new byte[0]; //Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
+        byte[] compressed = new byte[data.length * 2 + 100];
         byte[] decompressed = new byte[data.length];
 
         int compressedSize = ZstdFrameCompressor.compress(data, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + data.length, compressed, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + compressed.length, 3);
