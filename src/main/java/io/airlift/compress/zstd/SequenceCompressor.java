@@ -117,15 +117,15 @@ class SequenceCompressor
 
         nextEntropy.fse.litlength_repeatMode = previousEntropy.fse.litlength_repeatMode;
 
-        LLtype = ZSTD_selectEncodingType(&nextEntropy.fse.litlength_repeatMode, counts, max, mostFrequent, nbSeq, LLFSELog, previousEntropy.fse.litlengthCTable, LL_defaultNorm, LL_defaultNormLog, ZSTD_defaultAllowed, strategy);
+//        LLtype = ZSTD_selectEncodingType(&nextEntropy.fse.litlength_repeatMode, counts, max, mostFrequent, nbSeq, LLFSELog, previousEntropy.fse.litlengthCTable, LL_defaultNorm, LL_defaultNormLog, ZSTD_defaultAllowed, strategy);
 
-        int countSize = ZSTD_buildCTable(op, oend - op, CTable_LitLength, LLFSELog, (symbolEncodingType_e)LLtype, counts, max, llCodeTable, nbSeq, LL_defaultNorm, LL_defaultNormLog, MaxLL, previousEntropy.fse.litlengthCTable, sizeof(prevEntropy->fse.litlengthCTable), workspace, HUF_WORKSPACE_SIZE);
+//        int countSize = ZSTD_buildCTable(op, oend - op, CTable_LitLength, LLFSELog, (symbolEncodingType_e)LLtype, counts, max, llCodeTable, nbSeq, LL_defaultNorm, LL_defaultNormLog, MaxLL, previousEntropy.fse.litlengthCTable, sizeof(prevEntropy->fse.litlengthCTable), workspace, HUF_WORKSPACE_SIZE);
 
-        long lastNCount = 0;
-        if (LLtype == set_compressed) {
-            lastNCount = op;
-        }
-        op += countSize;
+//        long lastNCount = 0;
+//        if (LLtype == set_compressed) {
+//            lastNCount = op;
+//        }
+//        op += countSize;
 
 
 
