@@ -15,11 +15,12 @@ package io.airlift.compress.zstd;
 
 public class BlockState
 {
-    CompressedBlockState previous;
+    public CompressedBlockState previous;
     public CompressedBlockState next;
 
     public BlockState()
     {
+        previous = new CompressedBlockState();
         next = new CompressedBlockState();
     }
 }

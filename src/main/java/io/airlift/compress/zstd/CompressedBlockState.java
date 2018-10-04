@@ -16,4 +16,25 @@ package io.airlift.compress.zstd;
 public class CompressedBlockState
 {
     public int rep[] = new int[] {1, 4, 8};
+    public Entropy entropy = new Entropy(); // TODO
+
+    public static class Entropy
+    {
+        HuffmanTable huffman;
+        FseTables fse;
+    }
+
+    public static class FseTables
+    {
+        public Object litlength_repeatMode; // TODO
+        public Object litlengthCTable;
+    }
+
+    public static class HuffmanTable
+    {
+//        typedef struct {
+//            U32 CTable[HUF_CTABLE_SIZE_U32(255)];
+//            HUF_repeat repeatMode;
+//        } ZSTD_hufCTables_t;
+    }
 }

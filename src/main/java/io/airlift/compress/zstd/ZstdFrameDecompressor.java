@@ -48,11 +48,6 @@ class ZstdFrameDecompressor
 
     private static final int MAX_WINDOW_SIZE = 1 << 23;
 
-    // block types
-    public static final int RAW_BLOCK = 0;
-    public static final int RLE_BLOCK = 1;
-    public static final int COMPRESSED_BLOCK = 2;
-
     // literal block types
     private static final int RAW_LITERALS_BLOCK = 0;
     private static final int RLE_LITERALS_BLOCK = 1;
@@ -60,10 +55,6 @@ class ZstdFrameDecompressor
     private static final int REPEAT_STATS_LITERALS_BLOCK = 3;
 
     private static final int LONG_NUMBER_OF_SEQUENCES = 0x7F00;
-
-    private static final int MAX_LITERALS_LENGTH_SYMBOL = 35;
-    private static final int MAX_MATCH_LENGTH_SYMBOL = 52;
-    private static final int MAX_OFFSET_CODE_SYMBOL = 28;
 
     private static final int LITERALS_LENGTH_FSE_LOG = 9;
     private static final int MATCH_LENGTH_FSE_LOG = 9;
@@ -189,17 +180,17 @@ class ZstdFrameDecompressor
 
                 int decodedSize;
                 switch (blockType) {
-                    case RAW_BLOCK:
+                    case Constants.RAW_BLOCK:
                         verify(inputAddress + blockSize <= inputLimit, input, "Not enough input bytes");
                         decodedSize = decodeRawBlock(inputBase, input, blockSize, outputBase, output, outputLimit);
                         input += blockSize;
                         break;
-                    case RLE_BLOCK:
+                    case Constants.RLE_BLOCK:
                         verify(inputAddress + 1 <= inputLimit, input, "Not enough input bytes");
                         decodedSize = decodeRleBlock(blockSize, inputBase, input, outputBase, output, outputLimit);
                         input += 1;
                         break;
-                    case COMPRESSED_BLOCK:
+                    case Constants.COMPRESSED_BLOCK:
                         verify(inputAddress + blockSize <= inputLimit, input, "Not enough input bytes");
                         decodedSize = decodeCompressedBlock(inputBase, input, blockSize, outputBase, output, outputLimit, frameHeader.windowSize, outputAddress);
                         input += blockSize;
@@ -622,7 +613,7 @@ class ZstdFrameDecompressor
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
-                verify(value <= MAX_MATCH_LENGTH_SYMBOL, input, "Value exceeds expected maximum value");
+                verify(value <= Constants.MAX_MATCH_LENGTH_SYMBOL, input, "Value exceeds expected maximum value");
 
                 FseTableReader.initializeRleTable(matchLengthTable, value);
                 currentMatchLengthTable = matchLengthTable;
@@ -634,7 +625,7 @@ class ZstdFrameDecompressor
                 verify(currentMatchLengthTable != null, input, "Expected match length table to be present");
                 break;
             case SET_COMPRESSED:
-                input += fse.readFseTable(matchLengthTable, inputBase, input, inputLimit, MAX_MATCH_LENGTH_SYMBOL, MATCH_LENGTH_FSE_LOG);
+                input += fse.readFseTable(matchLengthTable, inputBase, input, inputLimit, Constants.MAX_MATCH_LENGTH_SYMBOL, MATCH_LENGTH_FSE_LOG);
                 currentMatchLengthTable = matchLengthTable;
                 break;
             default:
@@ -650,7 +641,7 @@ class ZstdFrameDecompressor
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
-                verify(value <= MAX_OFFSET_CODE_SYMBOL, input, "Value exceeds expected maximum value");
+                verify(value <= Constants.MAX_OFFSET_CODE_SYMBOL, input, "Value exceeds expected maximum value");
 
                 FseTableReader.initializeRleTable(offsetCodesTable, value);
                 currentOffsetCodesTable = offsetCodesTable;
@@ -662,7 +653,7 @@ class ZstdFrameDecompressor
                 verify(currentOffsetCodesTable != null, input, "Expected match length table to be present");
                 break;
             case SET_COMPRESSED:
-                input += fse.readFseTable(offsetCodesTable, inputBase, input, inputLimit, MAX_OFFSET_CODE_SYMBOL, OFFSET_CODES_FSE_LOG);
+                input += fse.readFseTable(offsetCodesTable, inputBase, input, inputLimit, Constants.MAX_OFFSET_CODE_SYMBOL, OFFSET_CODES_FSE_LOG);
                 currentOffsetCodesTable = offsetCodesTable;
                 break;
             default:
@@ -678,7 +669,7 @@ class ZstdFrameDecompressor
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
-                verify(value <= MAX_LITERALS_LENGTH_SYMBOL, input, "Value exceeds expected maximum value");
+                verify(value <= Constants.MAX_LITERALS_LENGTH_SYMBOL, input, "Value exceeds expected maximum value");
 
                 FseTableReader.initializeRleTable(literalsLengthTable, value);
                 currentLiteralsLengthTable = literalsLengthTable;
@@ -690,7 +681,7 @@ class ZstdFrameDecompressor
                 verify(currentLiteralsLengthTable != null, input, "Expected match length table to be present");
                 break;
             case SET_COMPRESSED:
-                input += fse.readFseTable(literalsLengthTable, inputBase, input, inputLimit, MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_FSE_LOG);
+                input += fse.readFseTable(literalsLengthTable, inputBase, input, inputLimit, Constants.MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_FSE_LOG);
                 currentLiteralsLengthTable = literalsLengthTable;
                 break;
             default:

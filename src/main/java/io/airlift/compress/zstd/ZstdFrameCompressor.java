@@ -18,15 +18,22 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.UnsafeSliceFactory;
 import io.airlift.slice.XxHash64;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import static io.airlift.compress.zstd.Constants.COMPRESSED_BLOCK;
 import static io.airlift.compress.zstd.Constants.MAGIC_NUMBER;
 import static io.airlift.compress.zstd.Constants.MAX_WINDOW_LOG;
 import static io.airlift.compress.zstd.Constants.MIN_BLOCK_SIZE;
 import static io.airlift.compress.zstd.Constants.MIN_WINDOW_LOG;
+import static io.airlift.compress.zstd.Constants.RAW_BLOCK;
+import static io.airlift.compress.zstd.Constants.REP_CODE_COUNT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_BLOCK_HEADER;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
+import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public class ZstdFrameCompressor
 {
@@ -139,7 +146,7 @@ public class ZstdFrameCompressor
             return (int) (output - outputAddress);
         }
 
-        output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, outputAddress, outputLimit, parameters);
+        output += compressFrame(inputBase, inputAddress, inputLimit, outputBase, output, outputLimit, parameters);
 
         output += writeChecksum(outputBase, output, outputLimit, inputBase, inputAddress, inputLimit);
         return (int) (output - outputAddress);
@@ -201,7 +208,7 @@ public class ZstdFrameCompressor
             if (compressedSize == 0) {  /* block is not compressible */
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
-                int blockHeader = lastBlockFlag | (ZstdFrameDecompressor.RAW_BLOCK << 1) | (blockSize << 3);
+                int blockHeader = lastBlockFlag | (RAW_BLOCK << 1) | (blockSize << 3);
 
                 UNSAFE.putInt(outputBase, output, blockHeader); /* 4th byte will be overwritten */
                 UNSAFE.copyMemory(inputBase, input, outputBase, output + SIZE_OF_BLOCK_HEADER, blockSize);
@@ -209,7 +216,7 @@ public class ZstdFrameCompressor
                 compressedSize = SIZE_OF_BLOCK_HEADER + blockSize;
             }
             else {
-                int blockHeader = lastBlockFlag | (ZstdFrameDecompressor.COMPRESSED_BLOCK << 1) | (compressedSize << 3);
+                int blockHeader = lastBlockFlag | (COMPRESSED_BLOCK << 1) | (compressedSize << 3);
 
                 // write 24 bits
                 UNSAFE.putShort(outputBase, output, (short) blockHeader);
@@ -247,6 +254,7 @@ public class ZstdFrameCompressor
             return 0;
         }
 
+        context.sequenceStore.reset();
 /*
         ZSTD_matchState_t* const ms = &zc->blockState.matchState;
         ZSTD_resetSeqStore(&(zc->seqStore));
@@ -262,10 +270,11 @@ public class ZstdFrameCompressor
         }
         */
 
-        for (int i = 0; i < Constants.REP_CODE_COUNT; i++) {
+        for (int i = 0; i < REP_CODE_COUNT; i++) {
             context.blockState.next.rep[i] = context.blockState.previous.rep[i];
         }
 
+        
         int lastLiteralsSize = parameters.getStrategy().getCompressor().compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);
         long lastLiteralsAddress = inputAddress + inputSize - lastLiteralsSize;
 
@@ -275,19 +284,17 @@ public class ZstdFrameCompressor
         // TODO
         int compressedSize = 0;
 
-        /*
-         *//* encode sequences and literals *//*
-        size_t const cSize = ZSTD_compressSequences(&zc->seqStore, &zc->blockState.prevCBlock->entropy, &zc->blockState.nextCBlock->entropy, &zc->appliedParams, dst, dstCapacity, srcSize, zc->entropyWorkspace, zc->bmi2);
+        compressedSize = new SequenceCompressor().compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize, new int[0]);
 
-        if (ZSTD_isError(cSize) || cSize == 0) {
-            return cSize;
+        if (compressedSize == 0) {
+            // not compressible
+            return compressedSize;
         }
-
-        *//* confirm repcodes and entropy tables *//*
-        ZSTD_compressedBlockState_t* const tmp = zc->blockState.prevCBlock;
-        zc->blockState.prevCBlock = zc->blockState.nextCBlock;
-        zc->blockState.nextCBlock = tmp;
-        */
+        
+        /* confirm repcodes and entropy tables */
+        CompressedBlockState temp = context.blockState.previous;
+        context.blockState.previous = context.blockState.next;
+        context.blockState.next = temp;
 
         return compressedSize;
     }
@@ -298,5 +305,23 @@ public class ZstdFrameCompressor
     private static boolean needsOverflowCorrection(long windowBase, long inputLimit)
     {
         return inputLimit - windowBase > CURRENT_MAX;
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        byte[] data = Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
+        byte[] compressed = new byte[data.length * 2];
+        byte[] decompressed = new byte[data.length];
+
+
+        int compressedSize = ZstdFrameCompressor.compress(data, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + data.length, compressed, ARRAY_BYTE_BASE_OFFSET, ARRAY_BYTE_BASE_OFFSET + compressed.length, 3);
+
+
+        int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
+
+        System.out.println("Original size:     " + data.length);
+        System.out.println("Compressed size:   " + compressedSize);
+        System.out.println("Decompressed size: " + decompressedSize);
     }
 }

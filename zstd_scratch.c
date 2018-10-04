@@ -4031,3 +4031,35 @@ _match_stored:
     /* Return the last literals size */
     return iend - anchor;
 }
+
+
+MEM_STATIC U32 ZSTD_LLcode(U32 litLength)
+{
+    static const BYTE LL_Code[64] = {  0,  1,  2,  3,  4,  5,  6,  7,
+                                       8,  9, 10, 11, 12, 13, 14, 15,
+                                      16, 16, 17, 17, 18, 18, 19, 19,
+                                      20, 20, 20, 20, 21, 21, 21, 21,
+                                      22, 22, 22, 22, 22, 22, 22, 22,
+                                      23, 23, 23, 23, 23, 23, 23, 23,
+                                      24, 24, 24, 24, 24, 24, 24, 24,
+                                      24, 24, 24, 24, 24, 24, 24, 24 };
+    static const U32 LL_deltaCode = 19;
+    return (litLength > 63) ? ZSTD_highbit32(litLength) + LL_deltaCode : LL_Code[litLength];
+}
+
+/* ZSTD_MLcode() :
+ * note : mlBase = matchLength - MINMATCH;
+ *        because it's the format it's stored in seqStore->sequences */
+MEM_STATIC U32 ZSTD_MLcode(U32 mlBase)
+{
+    static const BYTE ML_Code[128] = { 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15,
+                                      16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                                      32, 32, 33, 33, 34, 34, 35, 35, 36, 36, 36, 36, 37, 37, 37, 37,
+                                      38, 38, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 39, 39, 39,
+                                      40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,
+                                      41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41,
+                                      42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+                                      42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42 };
+    static const U32 ML_deltaCode = 36;
+    return (mlBase > 127) ? ZSTD_highbit32(mlBase) + ML_deltaCode : ML_Code[mlBase];
+}

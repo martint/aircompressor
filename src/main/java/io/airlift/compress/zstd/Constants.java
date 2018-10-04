@@ -33,4 +33,14 @@ public class Constants
             + MIN_SEQUENCES_SIZE;
 
     public static final int REP_CODE_COUNT = 3;
+
+    // block types
+    public static final int RAW_BLOCK = 0;
+    public static final int RLE_BLOCK = 1;
+    public static final int COMPRESSED_BLOCK = 2;
+
+
+    static final int MAX_LITERALS_LENGTH_SYMBOL = 35;
+    static final int MAX_MATCH_LENGTH_SYMBOL = 52;
+    static final int MAX_OFFSET_CODE_SYMBOL = 28;
 }
