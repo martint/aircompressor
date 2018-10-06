@@ -31,7 +31,6 @@ public class FseCompressionTable
         deltaFindState = new int[maxSymbolValue + 1];
     }
 
-
     public static FseCompressionTable makeRleTable(int symbol)
     {
         FseCompressionTable table = new FseCompressionTable(0, symbol);

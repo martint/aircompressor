@@ -29,6 +29,7 @@ import static io.airlift.compress.zstd.SequenceCompressor.EncodingType.REPEAT_NO
 import static io.airlift.compress.zstd.SequenceCompressor.EncodingType.REPEAT_VALID;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
+import static io.airlift.compress.zstd.ZstdFrameDecompressor.DEFAULT_LITERALS_LENGTH_TABLE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class SequenceCompressor
@@ -615,16 +616,24 @@ class SequenceCompressor
     {
         FseCompressionTable table = buildFseTable(LITERALS_LENGTH_DEFAULT_NORMS, MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_DEFAULT_NORM_LOG);
 
-        byte[] input = new byte[100];
-        for (int i = 0; i < input.length; i++) {
-            input[i] = (byte) (i % 10);
+        byte[] original = new byte[100];
+        for (int i = 0; i < original.length; i++) {
+            original[i] = (byte) (i % 10);
         }
 
-        byte[] output = new byte[100];
+        byte[] compressed = new byte[100];
+        byte[] decompressed = new byte[100];
 
-        int size = FseCompressor.compress(output, 16, output.length, input, 16, input.length, table);
+        int compressedSize = FseCompressor.compress(compressed, 16, compressed.length, original, 16, original.length, table);
+        int decompressedSize = FiniteStateEntropy.decompress(DEFAULT_LITERALS_LENGTH_TABLE, compressed, 16, 16 + compressedSize, decompressed);
 
-        new FiniteStateEntropy(LITERALS_LENGTH_FSE_LOG
-        System.out.println(size);
+        System.out.println(compressedSize);
+        System.out.println(decompressedSize);
+
+        for (int i = 0; i < decompressedSize; i++) {
+            if (original[i] != decompressed[i]) {
+                throw new RuntimeException();
+            }
+        }
     }
 }

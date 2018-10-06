@@ -21,6 +21,8 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class FiniteStateEntropy
 {
+    public static final int MAX_TABLE_LOG = 12;
+
     public static int decompress(FiniteStateEntropy.Table table, final Object inputBase, final long inputAddress, final long inputLimit, byte[] outputBuffer)
     {
         final Object outputBase = outputBuffer;

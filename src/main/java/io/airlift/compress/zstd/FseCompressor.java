@@ -38,56 +38,56 @@ public class FseCompressor
         int state2;
 
         if ((inputSize & 1) != 0) {
-            --input;
-            state1 = initFse(table, UNSAFE.getByte(inputBase, input));
+            input--;
+            state1 = initialize(table, UNSAFE.getByte(inputBase, input));
 
-            --input;
-            state2 = initFse(table, UNSAFE.getByte(inputBase, input));
+            input--;
+            state2 = initialize(table, UNSAFE.getByte(inputBase, input));
 
-            --input;
-            state1 = encodeSymbol(stream, table, state1, UNSAFE.getByte(inputBase, input));
+            input--;
+            state1 = encode(stream, table, state1, UNSAFE.getByte(inputBase, input));
 
             stream.flush();
         }
         else {
-            --input;
-            state2 = initFse(table, UNSAFE.getByte(inputBase, input));
+            input--;
+            state2 = initialize(table, UNSAFE.getByte(inputBase, input));
 
-            --input;
-            state1 = initFse(table, UNSAFE.getByte(inputBase, input));
+            input--;
+            state1 = initialize(table, UNSAFE.getByte(inputBase, input));
         }
 
         // join to mod 4
         inputSize -= 2;
 
         if ((SIZE_OF_LONG * 8 > FiniteStateEntropy.MAX_TABLE_LOG * 4 + 7) && (inputSize & 2) != 0) {  /* test bit 2 */
-            --input;
-            state2 = encodeSymbol(stream, table, state2, UNSAFE.getByte(inputBase, input));
+            input--;
+            state2 = encode(stream, table, state2, UNSAFE.getByte(inputBase, input));
 
-            --input;
-            state1 = encodeSymbol(stream, table, state1, UNSAFE.getByte(inputBase, input));
+            input--;
+            state1 = encode(stream, table, state1, UNSAFE.getByte(inputBase, input));
 
             stream.flush();
         }
 
         // 2 or 4 encoding per loop
         while (input > start) {
-            --input;
-            state2 = encodeSymbol(stream, table, state2, UNSAFE.getByte(inputBase, input));
+            input--;
+            state2 = encode(stream, table, state2, UNSAFE.getByte(inputBase, input));
 
             if (SIZE_OF_LONG * 8 < FiniteStateEntropy.MAX_TABLE_LOG * 2 + 7) {
                 stream.flush();
             }
 
-            --input;
-            state1 = encodeSymbol(stream, table, state1, UNSAFE.getByte(inputBase, input));
+            input--;
+            state1 = encode(stream, table, state1, UNSAFE.getByte(inputBase, input));
 
             if (SIZE_OF_LONG * 8 > FiniteStateEntropy.MAX_TABLE_LOG * 4 + 7) {
-                --input;
-                state2 = encodeSymbol(stream, table, state2, UNSAFE.getByte(inputBase, input));
+                input--;
+                state2 = encode(stream, table, state2, UNSAFE.getByte(inputBase, input));
 
-                --input;
-                state1 = encodeSymbol(stream, table, state1, UNSAFE.getByte(inputBase, input));
+                input--;
+                state1 = encode(stream, table, state1, UNSAFE.getByte(inputBase, input));
             }
 
             stream.flush();
@@ -99,14 +99,14 @@ public class FseCompressor
         return stream.close();
     }
 
-    private static int initFse(FseCompressionTable fse, byte symbol)
+    private static int initialize(FseCompressionTable fse, byte symbol)
     {
         int outputBits = fse.deltaNumberOfBits[symbol] + (1 << 15) >>> 16;
         int base = ((outputBits << 16) - fse.deltaNumberOfBits[symbol]) >>> outputBits;
         return fse.table[base + fse.deltaFindState[symbol]];
     }
 
-    private static int encodeSymbol(BitstreamEncoder stream, FseCompressionTable fse, int state, int symbol)
+    private static int encode(BitstreamEncoder stream, FseCompressionTable fse, int state, int symbol)
     {
         int outputBits = (state + fse.deltaNumberOfBits[symbol]) >> 16;
         stream.addBits(state, outputBits);
