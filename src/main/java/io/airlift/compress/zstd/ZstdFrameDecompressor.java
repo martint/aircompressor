@@ -56,15 +56,6 @@ class ZstdFrameDecompressor
 
     private static final int LONG_NUMBER_OF_SEQUENCES = 0x7F00;
 
-    private static final int LITERALS_LENGTH_FSE_LOG = 9;
-    private static final int MATCH_LENGTH_FSE_LOG = 9;
-    private static final int OFFSET_CODES_FSE_LOG = 8;
-
-    private static final int SET_BASIC = 0;
-    private static final int SET_RLE = 1;
-    private static final int SET_COMPRESSED = 2;
-    private static final int SET_REPEAT = 3;
-
     private static final int[] LITERALS_LENGTH_BASE = {
             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
             16, 18, 20, 22, 24, 28, 32, 40, 48, 64, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000,
@@ -132,9 +123,9 @@ class ZstdFrameDecompressor
 
     private final int[] previousOffsets = new int[3];
 
-    private final FiniteStateEntropy.Table literalsLengthTable = new FiniteStateEntropy.Table(LITERALS_LENGTH_FSE_LOG);
-    private final FiniteStateEntropy.Table offsetCodesTable = new FiniteStateEntropy.Table(OFFSET_CODES_FSE_LOG);
-    private final FiniteStateEntropy.Table matchLengthTable = new FiniteStateEntropy.Table(MATCH_LENGTH_FSE_LOG);
+    private final FiniteStateEntropy.Table literalsLengthTable = new FiniteStateEntropy.Table(Constants.LITERALS_LENGTH_FSE_LOG);
+    private final FiniteStateEntropy.Table offsetCodesTable = new FiniteStateEntropy.Table(Constants.OFFSET_CODES_FSE_LOG);
+    private final FiniteStateEntropy.Table matchLengthTable = new FiniteStateEntropy.Table(Constants.MATCH_LENGTH_FSE_LOG);
 
     private FiniteStateEntropy.Table currentLiteralsLengthTable;
     private FiniteStateEntropy.Table currentOffsetCodesTable;
@@ -470,7 +461,7 @@ class ZstdFrameDecompressor
                 }
 
                 int totalBits = literalsLengthBits + matchLengthBits + offsetBits;
-                if (totalBits > 64 - 7 - (LITERALS_LENGTH_FSE_LOG + MATCH_LENGTH_FSE_LOG + OFFSET_CODES_FSE_LOG)) {
+                if (totalBits > 64 - 7 - (Constants.LITERALS_LENGTH_FSE_LOG + Constants.MATCH_LENGTH_FSE_LOG + Constants.OFFSET_CODES_FSE_LOG)) {
                     BitStream.Loader loader1 = new BitStream.Loader(inputBase, input, currentAddress, bits, bitsConsumed);
                     loader1.load();
 
@@ -609,7 +600,7 @@ class ZstdFrameDecompressor
     private long computeMatchLengthTable(int matchLengthType, Object inputBase, long input, long inputLimit)
     {
         switch (matchLengthType) {
-            case SET_RLE:
+            case Constants.SEQUENCE_ENCODING_RLE:
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
@@ -618,14 +609,14 @@ class ZstdFrameDecompressor
                 FseTableReader.initializeRleTable(matchLengthTable, value);
                 currentMatchLengthTable = matchLengthTable;
                 break;
-            case SET_BASIC:
+            case Constants.SEQUENCE_ENCODING_BASIC:
                 currentMatchLengthTable = DEFAULT_MATCH_LENGTH_TABLE;
                 break;
-            case SET_REPEAT:
+            case Constants.SEQUENCE_ENCODING_REPEAT:
                 verify(currentMatchLengthTable != null, input, "Expected match length table to be present");
                 break;
-            case SET_COMPRESSED:
-                input += fse.readFseTable(matchLengthTable, inputBase, input, inputLimit, Constants.MAX_MATCH_LENGTH_SYMBOL, MATCH_LENGTH_FSE_LOG);
+            case Constants.SEQUENCE_ENCODING_COMPRESSED:
+                input += fse.readFseTable(matchLengthTable, inputBase, input, inputLimit, Constants.MAX_MATCH_LENGTH_SYMBOL, Constants.MATCH_LENGTH_FSE_LOG);
                 currentMatchLengthTable = matchLengthTable;
                 break;
             default:
@@ -637,23 +628,23 @@ class ZstdFrameDecompressor
     private long computeOffsetsTable(int offsetCodesType, Object inputBase, long input, long inputLimit)
     {
         switch (offsetCodesType) {
-            case SET_RLE:
+            case Constants.SEQUENCE_ENCODING_RLE:
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
-                verify(value <= Constants.MAX_OFFSET_CODE_SYMBOL, input, "Value exceeds expected maximum value");
+                verify(value <= Constants.DEFAULT_MAX_OFFSET_CODE_SYMBOL, input, "Value exceeds expected maximum value");
 
                 FseTableReader.initializeRleTable(offsetCodesTable, value);
                 currentOffsetCodesTable = offsetCodesTable;
                 break;
-            case SET_BASIC:
+            case Constants.SEQUENCE_ENCODING_BASIC:
                 currentOffsetCodesTable = DEFAULT_OFFSET_CODES_TABLE;
                 break;
-            case SET_REPEAT:
+            case Constants.SEQUENCE_ENCODING_REPEAT:
                 verify(currentOffsetCodesTable != null, input, "Expected match length table to be present");
                 break;
-            case SET_COMPRESSED:
-                input += fse.readFseTable(offsetCodesTable, inputBase, input, inputLimit, Constants.MAX_OFFSET_CODE_SYMBOL, OFFSET_CODES_FSE_LOG);
+            case Constants.SEQUENCE_ENCODING_COMPRESSED:
+                input += fse.readFseTable(offsetCodesTable, inputBase, input, inputLimit, Constants.DEFAULT_MAX_OFFSET_CODE_SYMBOL, Constants.OFFSET_CODES_FSE_LOG);
                 currentOffsetCodesTable = offsetCodesTable;
                 break;
             default:
@@ -665,7 +656,7 @@ class ZstdFrameDecompressor
     private long computeLiteralsTable(int literalsLengthType, Object inputBase, long input, long inputLimit)
     {
         switch (literalsLengthType) {
-            case SET_RLE:
+            case Constants.SEQUENCE_ENCODING_RLE:
                 verify(input < inputLimit, input, "Not enough input bytes");
 
                 byte value = UNSAFE.getByte(inputBase, input++);
@@ -674,14 +665,14 @@ class ZstdFrameDecompressor
                 FseTableReader.initializeRleTable(literalsLengthTable, value);
                 currentLiteralsLengthTable = literalsLengthTable;
                 break;
-            case SET_BASIC:
+            case Constants.SEQUENCE_ENCODING_BASIC:
                 currentLiteralsLengthTable = DEFAULT_LITERALS_LENGTH_TABLE;
                 break;
-            case SET_REPEAT:
+            case Constants.SEQUENCE_ENCODING_REPEAT:
                 verify(currentLiteralsLengthTable != null, input, "Expected match length table to be present");
                 break;
-            case SET_COMPRESSED:
-                input += fse.readFseTable(literalsLengthTable, inputBase, input, inputLimit, Constants.MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_FSE_LOG);
+            case Constants.SEQUENCE_ENCODING_COMPRESSED:
+                input += fse.readFseTable(literalsLengthTable, inputBase, input, inputLimit, Constants.MAX_LITERALS_LENGTH_SYMBOL, Constants.LITERALS_LENGTH_FSE_LOG);
                 currentLiteralsLengthTable = literalsLengthTable;
                 break;
             default:

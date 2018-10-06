@@ -13,19 +13,26 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.Constants.DEFAULT_MAX_OFFSET_CODE_SYMBOL;
+import static io.airlift.compress.zstd.Constants.LITERALS_LENGTH_FSE_LOG;
+import static io.airlift.compress.zstd.Constants.MATCH_LENGTH_FSE_LOG;
+import static io.airlift.compress.zstd.Constants.MAX_OFFSET_CODE_SYMBOL;
+import static io.airlift.compress.zstd.Constants.OFFSET_CODES_FSE_LOG;
+import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_BASIC;
+import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_COMPRESSED;
+import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_REPEAT;
+import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_RLE;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
+import static io.airlift.compress.zstd.FseTableReader.FSE_MAX_SYMBOL_VALUE;
+import static io.airlift.compress.zstd.SequenceCompressor.EncodingType.REPEAT_CHECK;
+import static io.airlift.compress.zstd.SequenceCompressor.EncodingType.REPEAT_NONE;
+import static io.airlift.compress.zstd.SequenceCompressor.EncodingType.REPEAT_VALID;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class SequenceCompressor
 {
-    // TODO: also in ZstdFrameDecompressor
-    private static final int SET_BASIC = 0;
-    private static final int SET_RLE = 1;
-    private static final int SET_COMPRESSED = 2;
-    private static final int SET_REPEAT = 3;
-
     private static final int STREAM_ACCUMULATOR_MIN = 57;
 
     private static final int MAX_LITERALS_LENGTH_SYMBOL = 35;
@@ -33,6 +40,29 @@ class SequenceCompressor
     private static final int MAX_SEQUENCES = Math.max(MAX_LITERALS_LENGTH_SYMBOL, MAX_MATCH_LENGTH_SYMBOL);
 
     private static final int LONGNBSEQ = 0x7F00;
+
+    private static final short[] LITERALS_LENGTH_DEFAULT_NORMS = {4, 3, 2, 2, 2, 2, 2, 2,
+                                                                  2, 2, 2, 2, 2, 1, 1, 1,
+                                                                  2, 2, 2, 2, 2, 2, 2, 2,
+                                                                  2, 3, 2, 1, 1, 1, 1, 1,
+                                                                  -1, -1, -1, -1};
+
+    private static final short[] MATCH_LENGTH_DEFAULT_NORMS = {1, 4, 3, 2, 2, 2, 2, 2,
+                                                               2, 1, 1, 1, 1, 1, 1, 1,
+                                                               1, 1, 1, 1, 1, 1, 1, 1,
+                                                               1, 1, 1, 1, 1, 1, 1, 1,
+                                                               1, 1, 1, 1, 1, 1, 1, 1,
+                                                               1, 1, 1, 1, 1, 1, -1, -1,
+                                                               -1, -1, -1, -1, -1};
+
+    private static final short[] OFFSET_DEFAULT_NORMS = {1, 1, 1, 1, 1, 1, 2, 2,
+                                                         2, 1, 1, 1, 1, 1, 1, 1,
+                                                         1, 1, 1, 1, 1, 1, 1, 1,
+                                                         -1, -1, -1, -1, -1};
+
+    private static final int LITERALS_LENGTH_DEFAULT_NORM_LOG = 6;
+    private static final int MATCH_LENGTH_DEFAULT_NORM_LOG = 6;
+    private static final int OFFSET_DEFAULT_NORM_LOG = 5;
 
     //    MEM_STATIC size_t ZSTD_compressSequences_internal(seqStore_t* seqStorePtr, ZSTD_entropyCTables_t const* prevEntropy, ZSTD_entropyCTables_t* nextEntropy, ZSTD_CCtx_params const* cctxParams, void* dst, size_t dstCapacity, U32* workspace, const int bmi2)
     public int compress(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, long outputAddress, int outputSize, int[] workspace)
@@ -52,7 +82,7 @@ class SequenceCompressor
 
         long ostart = outputAddress;
         long oend = ostart + outputSize;
-        long op = ostart;
+        long output = ostart;
         int nbSeq = sequences.sequenceCount;
 
         /* Compress literals */
@@ -61,120 +91,124 @@ class SequenceCompressor
 
         boolean disableLiteralCompression = (parameters.getStrategy() == CompressionParameters.Strategy.FAST) && (parameters.getTargetLength() > 0);
 
-        int cSize = compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters.getStrategy(), disableLiteralCompression, outputBase, op, outputSize, literals, litSize, workspace);
+        int cSize = compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters.getStrategy(), disableLiteralCompression, outputBase, output, outputSize, literals, litSize, workspace);
 
 //            if (ZSTD_isError(cSize)) {
 //                return cSize;
 //            }
-        op += cSize;
+        output += cSize;
 
         /* Sequences Header */
-        verify(oend - op > 3 /*max nbSeq Size*/ + 1 /*seqHead*/, outputAddress, "Output buffer too small");
-        
+        verify(oend - output > 3 /*max nbSeq Size*/ + 1 /*seqHead*/, outputAddress, "Output buffer too small");
+
         if (nbSeq < 0x7F) {
 //            *op++ = (BYTE)nbSeq;
-            UNSAFE.putByte(outputBase, op, (byte) nbSeq);
-            op++;
+            UNSAFE.putByte(outputBase, output, (byte) nbSeq);
+            output++;
         }
         else if (nbSeq < LONGNBSEQ) {
 //            op[0] = (BYTE)((nbSeq>>8) + 0x80), op[1] = (BYTE)nbSeq, op+=2;
-            UNSAFE.putByte(outputBase, op, (byte) (nbSeq >>> 8 | 0x80));
-            UNSAFE.putByte(outputBase, op, (byte) nbSeq);
-            op += SIZE_OF_SHORT;
+            UNSAFE.putByte(outputBase, output, (byte) (nbSeq >>> 8 | 0x80));
+            UNSAFE.putByte(outputBase, output, (byte) nbSeq);
+            output += SIZE_OF_SHORT;
         }
         else {
 //            op[0]=0xFF, MEM_writeLE16(op+1, (U16)(nbSeq - LONGNBSEQ)), op+=3;
-            UNSAFE.putByte(outputBase, op, (byte) 0xFF);
-            op++;
-            UNSAFE.putShort(outputBase, op, (short) (nbSeq - LONGNBSEQ));
-            op += SIZE_OF_SHORT;
+            UNSAFE.putByte(outputBase, output, (byte) 0xFF);
+            output++;
+            UNSAFE.putShort(outputBase, output, (short) (nbSeq - LONGNBSEQ));
+            output += SIZE_OF_SHORT;
         }
-        
-        if (nbSeq==0) {
+
+        if (nbSeq == 0) {
             /* Copy the old tables over as if we repeated them */
 //            memcpy(&nextEntropy->fse, &prevEntropy->fse, sizeof(prevEntropy->fse));
             // TODO copy previous->next FSE
-            return (int) (op - ostart);
+            return (int) (output - ostart);
         }
 
-
-        int LLtype, Offtype, MLtype;   /* compressed, raw or rle */
-
         /* seqHead : flags for FSE encoding type */
-        long seqHead = op++;
+        long seqHead = output++;
 
         /* convert length/distances into codes */
         sequences.generateCodes();
 
 //        int[] counts = new int[MAX_SEQUENCES + 1];
 
-        /* build CTable for Literal Lengths */
-        Histogram histogram = count(llCodeTable, nbSeq, MAX_LITERALS_LENGTH_SYMBOL);
+        long lastNCount = 0;
 
-        int max = histogram.maxSymbol;
-        int mostFrequent = histogram.largestCount;
-        int[] counts = histogram.counts;
+        Histogram histogram;
+        int maxSymbol;
+        int largestCount;
+        int[] counts;
+
+        int countSize = 0;
+
+        /* build CTable for Literal Lengths */
+        histogram = count(llCodeTable, nbSeq, MAX_LITERALS_LENGTH_SYMBOL);
+        maxSymbol = histogram.maxSymbol;
+        largestCount = histogram.largestCount;
+        counts = histogram.counts;
 
         nextEntropy.fse.litlength_repeatMode = previousEntropy.fse.litlength_repeatMode;
 
-//        LLtype = ZSTD_selectEncodingType(&nextEntropy.fse.litlength_repeatMode, counts, max, mostFrequent, nbSeq, LLFSELog, previousEntropy.fse.litlengthCTable, LL_defaultNorm, LL_defaultNormLog, ZSTD_defaultAllowed, strategy);
+        EncodingType literalsLengthType = selectEncodingType(nextEntropy.fse.litlength_repeatMode, counts, maxSymbol, largestCount, nbSeq, LITERALS_LENGTH_FSE_LOG, previousEntropy.fse.litlengthCTable, LITERALS_LENGTH_DEFAULT_NORMS, LITERALS_LENGTH_DEFAULT_NORM_LOG, true, strategy);
 
-//        int countSize = ZSTD_buildCTable(op, oend - op, CTable_LitLength, LLFSELog, (symbolEncodingType_e)LLtype, counts, max, llCodeTable, nbSeq, LL_defaultNorm, LL_defaultNormLog, MaxLL, previousEntropy.fse.litlengthCTable, sizeof(prevEntropy->fse.litlengthCTable), workspace, HUF_WORKSPACE_SIZE);
+// TODO        countSize = ZSTD_buildCTable(output, oend - output, CTable_LitLength, LITERALS_LENGTH_FSE_LOG, literalsLengthType.encoding, counts, maxSymbol, llCodeTable, nbSeq, LITERALS_LENGTH_DEFAULT_NORMS, LITERALS_LENGTH_DEFAULT_NORM_LOG, MAX_LITERALS_LENGTH_SYMBOL, previousEntropy.fse.litlengthCTable, sizeof(prevEntropy -> fse.litlengthCTable), workspace, HUF_WORKSPACE_SIZE);
 
-//        long lastNCount = 0;
-//        if (LLtype == set_compressed) {
-//            lastNCount = op;
-//        }
-//        op += countSize;
-
+        if (literalsLengthType.encoding == SEQUENCE_ENCODING_COMPRESSED) {
+            lastNCount = output;
+        }
+        output += countSize;
 
 
-//        /* build CTable for Offsets */
-//        {   U32 max = MaxOff;
-//            size_t const mostFrequent = HIST_countFast_wksp(count, &max, ofCodeTable, nbSeq, workspace);  /* can't fail */
-//            /* We can only use the basic table if max <= DefaultMaxOff, otherwise the offsets are too large */
-//            ZSTD_defaultPolicy_e const defaultPolicy = (max <= DefaultMaxOff) ? ZSTD_defaultAllowed : ZSTD_defaultDisallowed;
-//            DEBUGLOG(5, "Building OF table");
-//            nextEntropy->fse.offcode_repeatMode = prevEntropy->fse.offcode_repeatMode;
-//            Offtype = ZSTD_selectEncodingType(&nextEntropy->fse.offcode_repeatMode, count, max, mostFrequent, nbSeq, OffFSELog, prevEntropy->fse.offcodeCTable, OF_defaultNorm, OF_defaultNormLog, defaultPolicy, strategy);
-//            assert(!(Offtype < set_compressed && nextEntropy->fse.offcode_repeatMode != FSE_repeat_none)); /* We don't copy tables */
-//            {   size_t const countSize = ZSTD_buildCTable(op, oend - op, CTable_OffsetBits, OffFSELog, (symbolEncodingType_e)Offtype,
-//                    count, max, ofCodeTable, nbSeq, OF_defaultNorm, OF_defaultNormLog, DefaultMaxOff,
-//                    prevEntropy->fse.offcodeCTable, sizeof(prevEntropy->fse.offcodeCTable),
-//                    workspace, HUF_WORKSPACE_SIZE);
-//                if (ZSTD_isError(countSize)) return countSize;
-//                if (Offtype == set_compressed)
-//                    lastNCount = op;
-//                op += countSize;
-//            }   }
-//        /* build CTable for MatchLengths */
-//        {   U32 max = MaxML;
-//            size_t const mostFrequent = HIST_countFast_wksp(count, &max, mlCodeTable, nbSeq, workspace);   /* can't fail */
-//            DEBUGLOG(5, "Building ML table");
-//            nextEntropy->fse.matchlength_repeatMode = prevEntropy->fse.matchlength_repeatMode;
-//            MLtype = ZSTD_selectEncodingType(&nextEntropy->fse.matchlength_repeatMode, count, max, mostFrequent, nbSeq, MLFSELog, prevEntropy->fse.matchlengthCTable, ML_defaultNorm, ML_defaultNormLog, ZSTD_defaultAllowed, strategy);
-//            assert(!(MLtype < set_compressed && nextEntropy->fse.matchlength_repeatMode != FSE_repeat_none)); /* We don't copy tables */
-//            {   size_t const countSize = ZSTD_buildCTable(op, oend - op, CTable_MatchLength, MLFSELog, (symbolEncodingType_e)MLtype,
-//                    count, max, mlCodeTable, nbSeq, ML_defaultNorm, ML_defaultNormLog, MaxML,
-//                    prevEntropy->fse.matchlengthCTable, sizeof(prevEntropy->fse.matchlengthCTable),
-//                    workspace, HUF_WORKSPACE_SIZE);
-//                if (ZSTD_isError(countSize)) return countSize;
-//                if (MLtype == set_compressed)
-//                    lastNCount = op;
-//                op += countSize;
-//            }   }
-//
-//        *seqHead = (BYTE)((LLtype<<6) + (Offtype<<4) + (MLtype<<2));
-//
-//        {   size_t const bitstreamSize = ZSTD_encodeSequences(
+        /* build CTable for Offsets */
+        histogram = count(ofCodeTable, nbSeq, MAX_OFFSET_CODE_SYMBOL);
+        maxSymbol = histogram.maxSymbol;
+        largestCount = histogram.largestCount;
+        counts = histogram.counts;
+
+        /* We can only use the basic table if max <= DEFAULT_MAX_OFFSET_CODE_SYMBOL, otherwise the offsets are too large */
+        boolean defaultAllowed = maxSymbol < DEFAULT_MAX_OFFSET_CODE_SYMBOL;
+        nextEntropy.fse.offcode_repeatMode = previousEntropy.fse.offcode_repeatMode;
+
+        EncodingType offsetEncodingType = selectEncodingType(nextEntropy.fse.offcode_repeatMode, counts, maxSymbol, largestCount, nbSeq, OFFSET_CODES_FSE_LOG, previousEntropy.fse.offcodeCTable, OFFSET_DEFAULT_NORMS, OFFSET_DEFAULT_NORM_LOG, defaultAllowed, strategy);
+
+//        countSize = ZSTD_buildCTable(output, oend - output, CTable_OffsetBits, OFFSET_CODES_FSE_LOG, offsetEncodingType.encoding, counts, maxSymbol, ofCodeTable, nbSeq, OFFSET_DEFAULT_NORMS, OFFSET_DEFAULT_NORM_LOG, DEFAULT_MAX_OFFSET_CODE_SYMBOL, prevEntropy -> fse.offcodeCTable, sizeof(prevEntropy -> fse.offcodeCTable), workspace, HUF_WORKSPACE_SIZE);
+
+        if (offsetEncodingType.encoding == SEQUENCE_ENCODING_COMPRESSED) {
+            lastNCount = output;
+        }
+        output += countSize;
+
+        /* build CTable for MatchLengths */
+        histogram = count(mlCodeTable, nbSeq, MAX_MATCH_LENGTH_SYMBOL);   /* can't fail */
+        maxSymbol = histogram.maxSymbol;
+        largestCount = histogram.largestCount;
+        counts = histogram.counts;
+
+        nextEntropy.fse.matchlength_repeatMode = previousEntropy.fse.matchlength_repeatMode;
+        EncodingType matchLengthEncodingType = selectEncodingType(nextEntropy.fse.matchlength_repeatMode, counts, maxSymbol, largestCount, nbSeq, MATCH_LENGTH_FSE_LOG, previousEntropy.fse.matchlengthCTable, MATCH_LENGTH_DEFAULT_NORMS, MATCH_LENGTH_DEFAULT_NORM_LOG, true, strategy);
+
+//        countSize = ZSTD_buildCTable(output, oend - output, CTable_MatchLength, MATCH_LENGTH_FSE_LOG, matchLengthEncodingType.encoding, counts, maxSymbol, mlCodeTable, nbSeq, MATCH_LENGTH_DEFAULT_NORMS, MATCH_LENGTH_DEFAULT_NORM_LOG, MAX_MATCH_LENGTH_SYMBOL, prevEntropy->fse.matchlengthCTable, sizeof(prevEntropy->fse.matchlengthCTable), workspace, HUF_WORKSPACE_SIZE);
+
+        if (matchLengthEncodingType.encoding == SEQUENCE_ENCODING_COMPRESSED) {
+            lastNCount = output;
+        }
+        output += countSize;
+
+        UNSAFE.putByte(outputBase, seqHead, (byte) ((literalsLengthType.encoding << 6) | (offsetEncodingType.encoding << 4) | (matchLengthEncodingType.encoding << 2)));
+
+//            size_t const bitstreamSize = ZSTD_encodeSequences(
 //                op, oend - op,
 //                CTable_MatchLength, mlCodeTable,
 //                CTable_OffsetBits, ofCodeTable,
 //                CTable_LitLength, llCodeTable,
 //                sequences, nbSeq,
 //                longOffsets, bmi2);
-//            if (ZSTD_isError(bitstreamSize)) return bitstreamSize;
+
 //            op += bitstreamSize;
+
 //            /* zstd versions <= 1.3.4 mistakenly report corruption when
 //             * FSE_readNCount() recieves a buffer < 4 bytes.
 //             * Fixed by https://github.com/facebook/zstd/pull/1146.
@@ -190,9 +224,8 @@ class SequenceCompressor
 //                        "emitting an uncompressed block.");
 //                return 0;
 //            }
-//        }
-//
-        return (int) (op - ostart);
+
+        return (int) (output - ostart);
     }
 
     private int compressLiterals(
@@ -324,24 +357,23 @@ class SequenceCompressor
         int headerSize;
         if (inputSize < 32) {
             headerSize = 1;
-            UNSAFE.putByte(outputBase, outputAddress, (byte) (SET_BASIC | (inputSize << 3)));
+            UNSAFE.putByte(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_BASIC | (inputSize << 3)));
         }
         else if (inputSize < 4096) {
             headerSize = 2;
             // We're guaranteed to be able to write a short because of the above check w/ inputSize between [32, 4095]
-            UNSAFE.putShort(outputBase, outputAddress, (short) (SET_BASIC | (1 << 2) | (inputSize << 4)));
+            UNSAFE.putShort(outputBase, outputAddress, (short) (SEQUENCE_ENCODING_BASIC | (1 << 2) | (inputSize << 4)));
         }
         else {
             headerSize = 3;
             // We're guaranteed to be able to write an int because of the above check w/ inputSize >= 4096
-            UNSAFE.putInt(outputBase, outputAddress, SET_BASIC | (3 << 2) | (inputSize << 4));
+            UNSAFE.putInt(outputBase, outputAddress, SEQUENCE_ENCODING_BASIC | (3 << 2) | (inputSize << 4));
         }
 
         UNSAFE.copyMemory(inputBase, inputAddress, outputBase, outputAddress + headerSize, inputSize);
 
         return headerSize + inputSize;
     }
-
 
     private static class Histogram
     {
@@ -386,91 +418,213 @@ class SequenceCompressor
         return new Histogram(maxSymbol, largestCount, counts);
     }
 
+    static class EncodingType
+    {
+        public static final int REPEAT_NONE = 0;   /* Cannot use the previous table */
+        public static final int REPEAT_CHECK = 1;  /* Can use the previous table but it must be checked */
+        public static final int REPEAT_VALID = 2;  /* Can use the previous table and it is asumed to be valid */
 
-//    MEM_STATIC symbolEncodingType_e ZSTD_selectEncodingType(
-//            FSE_repeat* repeatMode,
-//            unsigned const* count,
-//            unsigned const max,
-//            size_t const mostFrequent,
-//            size_t nbSeq,
-//            unsigned const FSELog,
-//            FSE_CTable const* prevCTable,
-//            short const* defaultNorm,
-//            U32 defaultNormLog,
-//            ZSTD_defaultPolicy_e const isDefaultAllowed,
-//            ZSTD_strategy const strategy)
+        int repeatMode;
+        int encoding;
+
+        public EncodingType(int repeatMode, int encoding)
+        {
+            this.repeatMode = repeatMode;
+            this.encoding = encoding;
+        }
+    }
+
+    private EncodingType selectEncodingType(
+            int repeatMode,
+            int[] counts,
+            int maxSymbol,
+            int largestCount,
+            int sequenceCount,
+            int FSELog,
+            FseCompressionTable prevCTable,
+            short[] defaultNorm,
+            int defaultNormLog,
+            boolean isDefaultAllowed,
+            CompressionParameters.Strategy strategy)
+    {
+        if (largestCount == sequenceCount) { // => all entries are equal
+            if (isDefaultAllowed && sequenceCount <= 2) {
+                /* Prefer set_basic over set_rle when there are 2 or fewer symbols,
+                 * since RLE uses 1 byte, but set_basic uses 5-6 bits per symbol.
+                 * If basic encoding isn't possible, always choose RLE.
+                 */
+                return new EncodingType(SEQUENCE_ENCODING_BASIC, REPEAT_NONE);
+            }
+            return new EncodingType(SEQUENCE_ENCODING_RLE, REPEAT_NONE);
+        }
+
+        if (strategy.ordinal() < CompressionParameters.Strategy.LAZY.ordinal()) { // TODO: more robust check. Maybe encapsulate in strategy objects
+            if (isDefaultAllowed) {
+                int staticFse_nbSeq_max = 1000;
+                int mult = 10 - strategy.ordinal(); // TODO more robust
+                int baseLog = 3;
+                long dynamicFse_nbSeq_min = ((1L << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
+
+                if ((repeatMode == REPEAT_VALID) && (sequenceCount < staticFse_nbSeq_max)) {
+                    return new EncodingType(SEQUENCE_ENCODING_REPEAT, REPEAT_VALID);
+                }
+
+                if ((sequenceCount < dynamicFse_nbSeq_min) || (largestCount < (sequenceCount >> (defaultNormLog - 1)))) {
+                    /* The format allows default tables to be repeated, but it isn't useful.
+                     * When using simple heuristics to select encoding type, we don't want
+                     * to confuse these tables with dictionaries. When running more careful
+                     * analysis, we don't need to waste time checking both repeating tables
+                     * and default tables.
+                     */
+                    return new EncodingType(SEQUENCE_ENCODING_BASIC, REPEAT_NONE);
+                }
+            }
+        }
+        else {
+            // TODO
+            throw new UnsupportedOperationException("not yet implemented");
+        }
+
+        return new EncodingType(SEQUENCE_ENCODING_COMPRESSED, REPEAT_CHECK);
+    }
+
+//    MEM_STATIC size_t
+//    ZSTD_buildCTable(void* dst, size_t dstCapacity, FSE_CTable* nextCTable, U32 FSELog, symbolEncodingType_e type, U32* count, U32 max, const BYTE* codeTable, size_t nbSeq, const S16* defaultNorm, U32 defaultNormLog, U32 defaultMax, const FSE_CTable* prevCTable, size_t prevCTableSize, void* workspace, size_t workspaceSize)
 //    {
-//        if (mostFrequent == nbSeq) {
-//            *repeatMode = FSE_repeat_none;
-//            if (isDefaultAllowed && nbSeq <= 2) {
-//                /* Prefer set_basic over set_rle when there are 2 or less symbols,
-//                 * since RLE uses 1 byte, but set_basic uses 5-6 bits per symbol.
-//                 * If basic encoding isn't possible, always choose RLE.
-//                 */
-//                DEBUGLOG(5, "Selected set_basic");
-//                return set_basic;
-//            }
-//            DEBUGLOG(5, "Selected set_rle");
-//            return set_rle;
-//        }
-//        if (strategy < ZSTD_lazy) {
-//            if (isDefaultAllowed) {
-//                size_t const staticFse_nbSeq_max = 1000;
-//                size_t const mult = 10 - strategy;
-//                size_t const baseLog = 3;
-//                size_t const dynamicFse_nbSeq_min = (((size_t)1 << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
-//                assert(defaultNormLog >= 5 && defaultNormLog <= 6);  /* xx_DEFAULTNORMLOG */
-//                assert(mult <= 9 && mult >= 7);
-
-//                if ( (*repeatMode == FSE_repeat_valid) && (nbSeq < staticFse_nbSeq_max) ) {
-//                    DEBUGLOG(5, "Selected set_repeat");
-//                    return set_repeat;
-//                }
-    
-//                if ( (nbSeq < dynamicFse_nbSeq_min) || (mostFrequent < (nbSeq >> (defaultNormLog-1))) ) {
-//                    DEBUGLOG(5, "Selected set_basic");
-//                    /* The format allows default tables to be repeated, but it isn't useful.
-//                     * When using simple heuristics to select encoding type, we don't want
-//                     * to confuse these tables with dictionaries. When running more careful
-//                     * analysis, we don't need to waste time checking both repeating tables
-//                     * and default tables.
-//                     */
-//                    *repeatMode = FSE_repeat_none;
-//                    return set_basic;
-//                }
-//            }
-//        }
-//        else {
-//            size_t const basicCost = isDefaultAllowed ? ZSTD_crossEntropyCost(defaultNorm, defaultNormLog, count, max) : ERROR(GENERIC);
-//            size_t const repeatCost = *repeatMode != FSE_repeat_none ? ZSTD_fseBitCost(prevCTable, count, max) : ERROR(GENERIC);
-//            size_t const NCountCost = ZSTD_NCountCost(count, max, nbSeq, FSELog);
-//            size_t const compressedCost = (NCountCost << 3) + ZSTD_entropyCost(count, max, nbSeq);
+//        BYTE* op = (BYTE*)dst;
+//    const BYTE* const oend = op + dstCapacity;
 //
-//            if (isDefaultAllowed) {
-//                assert(!ZSTD_isError(basicCost));
-//                assert(!(*repeatMode == FSE_repeat_valid && ZSTD_isError(repeatCost)));
+//        switch (type) {
+//            case set_rle:
+//                *op = codeTable[0];
+//                CHECK_F(FSE_buildCTable_rle(nextCTable, (BYTE)max));
+//                return 1;
+//            case set_repeat:
+//                memcpy(nextCTable, prevCTable, prevCTableSize);
+//                return 0;
+//            case set_basic:
+//                CHECK_F(FSE_buildCTable_wksp(nextCTable, defaultNorm, defaultMax, defaultNormLog, workspace, workspaceSize));  /* note : could be pre-calculated */
+//                return 0;
+//            case set_compressed: {
+//                S16 norm[MaxSeq + 1];
+//                size_t nbSeq_1 = nbSeq;
+//        const U32 tableLog = FSE_optimalTableLog(FSELog, nbSeq, max);
+//                if (count[codeTable[nbSeq-1]] > 1) {
+//                    count[codeTable[nbSeq-1]]--;
+//                    nbSeq_1--;
+//                }
+//                assert(nbSeq_1 > 1);
+//                CHECK_F(FSE_normalizeCount(norm, tableLog, count, nbSeq_1, max));
+//                {   size_t const NCountSize = FSE_writeNCount(op, oend - op, norm, max, tableLog);   /* overflow protected */
+//                    if (FSE_isError(NCountSize)) return NCountSize;
+//                    CHECK_F(FSE_buildCTable_wksp(nextCTable, norm, max, tableLog, workspace, workspaceSize));
+//                    return NCountSize;
+//                }
 //            }
-    
-//            assert(!ZSTD_isError(NCountCost));
-//            assert(compressedCost < ERROR(maxCode));
-//            DEBUGLOG(5, "Estimated bit costs: basic=%u\trepeat=%u\tcompressed=%u", (U32)basicCost, (U32)repeatCost, (U32)compressedCost);
-
-//            if (basicCost <= repeatCost && basicCost <= compressedCost) {
-//                DEBUGLOG(5, "Selected set_basic");
-//                assert(isDefaultAllowed);
-//                *repeatMode = FSE_repeat_none;
-//                return set_basic;
-//            }
-
-//            if (repeatCost <= compressedCost) {
-//                DEBUGLOG(5, "Selected set_repeat");
-//                assert(!ZSTD_isError(repeatCost));
-//                return set_repeat;
-//            }
-//            assert(compressedCost < basicCost && compressedCost < repeatCost);
+//            default: return assert(0), ERROR(GENERIC);
 //        }
-//        DEBUGLOG(5, "Selected set_compressed");
-//        *repeatMode = FSE_repeat_check;
-//        return set_compressed;
 //    }
+
+    private static int fseTableStep(int tableSize)
+    {
+        return (tableSize >>> 1) + (tableSize >>> 3) + 3;
+    }
+
+    //    size_t FSE_buildCTable_wksp(FSE_CTable* ct, const short* normalizedCounter, unsigned maxSymbolValue, unsigned tableLog, void* workSpace, size_t wkspSize)
+    public static FseCompressionTable buildFseTable(short[] normalizedCounter, int maxSymbolValue, int tableLog)
+    {
+//        assert(tableLog < 16);   /* required for the threshold strategy to work */
+        int tableSize = 1 << tableLog;
+        int tableMask = tableSize - 1;
+
+        int step = fseTableStep(tableSize);
+
+//        verify(1 << tableLog <= tableSymbol.length, 0, "Table log too large");
+        byte[] tableSymbol = new byte[tableSize]; // TODO: allocate per compressor (see wkspSize)
+        int highThreshold = tableSize - 1;
+
+        FseCompressionTable table = new FseCompressionTable(tableLog, maxSymbolValue);
+
+        /* For explanations on how to distribute symbol values over the table :
+         *  http://fastcompression.blogspot.fr/2014/02/fse-distributing-symbol-values.html */
+
+        // symbol start positions
+        int[] cumulative = new int[FSE_MAX_SYMBOL_VALUE + 2];
+        cumulative[0] = 0;
+        for (int i = 1; i <= maxSymbolValue + 1; i++) {
+            if (normalizedCounter[i - 1] == -1) {  /* Low proba symbol */
+                cumulative[i] = cumulative[i - 1] + 1;
+                tableSymbol[highThreshold--] = (byte) (i - 1);
+            }
+            else {
+                cumulative[i] = cumulative[i - 1] + normalizedCounter[i - 1];
+            }
+        }
+        cumulative[maxSymbolValue + 1] = tableSize + 1;
+
+        // Spread symbols
+        int position = 0;
+        for (int symbol = 0; symbol < maxSymbolValue; ++symbol) {
+            for (int occurrenceCount = 0; occurrenceCount < normalizedCounter[symbol]; occurrenceCount++) {
+                tableSymbol[position] = (byte) symbol;
+                position = (position + step) & tableMask;
+                while (position > highThreshold) {
+                    position = (position + step) & tableMask;   /* Low proba area */
+                }
+            }
+        }
+
+        if (position != 0) { // TODO
+            throw new IllegalStateException();   /* Must have gone through all positions */
+        }
+
+        // Build table
+        for (int i = 0; i < tableSize; i++) {
+            byte symbol = tableSymbol[i];
+            table.table[cumulative[symbol]++] = (short) (tableSize + i);  /* TableU16 : sorted by symbol order; gives next state value */
+        }
+
+        // Build Symbol Transformation Table
+        int total = 0;
+        for (int symbol = 0; symbol <= maxSymbolValue; symbol++) {
+            switch (normalizedCounter[symbol]) {
+                case 0:
+                    /* filling nonetheless, for compatibility with FSE_getMaxNbBits() */
+                    table.deltaNumberOfBits[symbol] = ((tableLog + 1) << 16) - (1 << tableLog);
+                    break;
+                case -1:
+                case 1:
+                    table.deltaNumberOfBits[symbol] = (tableLog << 16) - (1 << tableLog);
+                    table.deltaFindState[symbol] = total - 1;
+                    total++;
+                    break;
+                default:
+                    int maxBitsOut = tableLog - Util.highestBit(normalizedCounter[symbol] - 1);
+                    int minStatePlus = normalizedCounter[symbol] << maxBitsOut;
+                    table.deltaNumberOfBits[symbol] = (maxBitsOut << 16) - minStatePlus;
+                    table.deltaFindState[symbol] = total - normalizedCounter[symbol];
+                    total += normalizedCounter[symbol];
+                    break;
+            }
+        }
+
+        return table;
+    }
+
+    public static void main(String[] args)
+    {
+        FseCompressionTable table = buildFseTable(LITERALS_LENGTH_DEFAULT_NORMS, MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_DEFAULT_NORM_LOG);
+
+        byte[] input = new byte[100];
+        for (int i = 0; i < input.length; i++) {
+            input[i] = (byte) (i % 10);
+        }
+
+        byte[] output = new byte[100];
+
+        int size = FseCompressor.compress(output, 16, output.length, input, 16, input.length, table);
+
+        new FiniteStateEntropy(LITERALS_LENGTH_FSE_LOG
+        System.out.println(size);
+    }
 }

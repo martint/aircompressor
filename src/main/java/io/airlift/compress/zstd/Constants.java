@@ -39,11 +39,23 @@ public class Constants
     public static final int RLE_BLOCK = 1;
     public static final int COMPRESSED_BLOCK = 2;
 
+    // sequence encoding types
+    public static final int SEQUENCE_ENCODING_BASIC = 0;
+    public static final int SEQUENCE_ENCODING_RLE = 1;
+    public static final int SEQUENCE_ENCODING_COMPRESSED = 2;
+    public static final int SEQUENCE_ENCODING_REPEAT = 3;
+
     static final int MAX_LITERALS_LENGTH_SYMBOL = 35;
     static final int MAX_MATCH_LENGTH_SYMBOL = 52;
-    static final int MAX_OFFSET_CODE_SYMBOL = 28;
+    static final int MAX_OFFSET_CODE_SYMBOL = 31;
+    static final int DEFAULT_MAX_OFFSET_CODE_SYMBOL = 28;
+
 
     public static final int MAX_BLOCK_SIZE = 1 << 17;
+
+    static final int LITERALS_LENGTH_FSE_LOG = 9;
+    static final int MATCH_LENGTH_FSE_LOG = 9;
+    static final int OFFSET_CODES_FSE_LOG = 8;
 
     private Constants()
     {

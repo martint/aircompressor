@@ -1,1 +1,5 @@
 * SequenceStore.longLengthID
+* Increase MaxOff: bbe77212efebcfefb6b510f2509a674a5dd25245
+* https://github.com/facebook/zstd/pull/1146
+
+* Replace verify() in compressor w/ appropriate impl for compressor (current implementation throws MalformedInputException)

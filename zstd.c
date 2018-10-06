@@ -5,6 +5,21 @@ GIT commit: 90ae50224d15e8dbcb9fa26b9be096366733db8e
 typedef enum { ZSTD_noDict = 0, ZSTD_extDict = 1, ZSTD_dictMatchState = 2 } ZSTD_dictMode_e;
 
 typedef struct {
+    size_t bitContainer;
+    unsigned bitPos;
+    char*  startPtr;
+    char*  ptr;
+    char*  endPtr;
+} BIT_CStream_t;
+
+typedef struct {
+    ptrdiff_t   value;
+    const void* stateTable;
+    const void* symbolTT;
+    unsigned    stateLog;
+} FSE_CState_t;
+
+typedef struct {
     ZSTD_compressedBlockState_t* prevCBlock;
     ZSTD_compressedBlockState_t* nextCBlock;
     ZSTD_matchState_t matchState;
@@ -5447,4 +5462,123 @@ MEM_STATIC U32 ZSTD_MLcode(U32 mlBase)
                                       42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42 };
     static const U32 ML_deltaCode = 36;
     return (mlBase > 127) ? ZSTD_highbit32(mlBase) + ML_deltaCode : ML_Code[mlBase];
+}
+
+MEM_STATIC size_t BIT_initCStream(BIT_CStream_t* bitC,
+                                  void* startPtr, size_t dstCapacity)
+{
+    bitC->bitContainer = 0;
+    bitC->bitPos = 0;
+    bitC->startPtr = (char*)startPtr;
+    bitC->ptr = bitC->startPtr;
+    bitC->endPtr = bitC->startPtr + dstCapacity - sizeof(bitC->bitContainer);
+    if (dstCapacity <= sizeof(bitC->bitContainer)) return ERROR(dstSize_tooSmall);
+    return 0;
+}
+
+MEM_STATIC void FSE_initCState(FSE_CState_t* statePtr, const FSE_CTable* ct)
+{
+    const void* ptr = ct;
+    const U16* u16ptr = (const U16*) ptr;
+    const U32 tableLog = MEM_read16(ptr);
+    statePtr->value = (ptrdiff_t)1<<tableLog;
+    statePtr->stateTable = u16ptr+2;
+    statePtr->symbolTT = ((const U32*)ct + 1 + (tableLog ? (1<<(tableLog-1)) : 1));
+    statePtr->stateLog = tableLog;
+}
+
+/*! FSE_initCState2() :
+*   Same as FSE_initCState(), but the first symbol to include (which will be the last to be read)
+*   uses the smallest state value possible, saving the cost of this symbol */
+MEM_STATIC void FSE_initCState2(FSE_CState_t* statePtr, const FSE_CTable* ct, U32 symbol)
+{
+    FSE_initCState(statePtr, ct);
+    {   const FSE_symbolCompressionTransform symbolTT = ((const FSE_symbolCompressionTransform*)(statePtr->symbolTT))[symbol];
+        const U16* stateTable = (const U16*)(statePtr->stateTable);
+        U32 nbBitsOut  = (U32)((symbolTT.deltaNbBits + (1<<15)) >> 16);
+        statePtr->value = (nbBitsOut << 16) - symbolTT.deltaNbBits;
+        statePtr->value = stateTable[(statePtr->value >> nbBitsOut) + symbolTT.deltaFindState];
+    }
+}
+
+/*! BIT_addBits() :
+ *  can add up to 31 bits into `bitC`.
+ *  Note : does not check for register overflow ! */
+MEM_STATIC void BIT_addBits(BIT_CStream_t* bitC,
+                            size_t value, unsigned nbBits)
+{
+    MEM_STATIC_ASSERT(BIT_MASK_SIZE == 32);
+    assert(nbBits < BIT_MASK_SIZE);
+    assert(nbBits + bitC->bitPos < sizeof(bitC->bitContainer) * 8);
+    bitC->bitContainer |= (value & BIT_mask[nbBits]) << bitC->bitPos;
+    bitC->bitPos += nbBits;
+}
+
+/*! BIT_addBitsFast() :
+ *  works only if `value` is _clean_,
+ *  meaning all high bits above nbBits are 0 */
+MEM_STATIC void BIT_addBitsFast(BIT_CStream_t* bitC,
+                                size_t value, unsigned nbBits)
+{
+    assert((value>>nbBits) == 0);
+    assert(nbBits + bitC->bitPos < sizeof(bitC->bitContainer) * 8);
+    bitC->bitContainer |= value << bitC->bitPos;
+    bitC->bitPos += nbBits;
+}
+
+/*! BIT_flushBitsFast() :
+ *  assumption : bitContainer has not overflowed
+ *  unsafe version; does not check buffer overflow */
+MEM_STATIC void BIT_flushBitsFast(BIT_CStream_t* bitC)
+{
+    size_t const nbBytes = bitC->bitPos >> 3;
+    assert(bitC->bitPos < sizeof(bitC->bitContainer) * 8);
+    MEM_writeLEST(bitC->ptr, bitC->bitContainer);
+    bitC->ptr += nbBytes;
+    assert(bitC->ptr <= bitC->endPtr);
+    bitC->bitPos &= 7;
+    bitC->bitContainer >>= nbBytes*8;
+}
+
+/*! BIT_flushBits() :
+ *  assumption : bitContainer has not overflowed
+ *  safe version; check for buffer overflow, and prevents it.
+ *  note : does not signal buffer overflow.
+ *  overflow will be revealed later on using BIT_closeCStream() */
+MEM_STATIC void BIT_flushBits(BIT_CStream_t* bitC)
+{
+    size_t const nbBytes = bitC->bitPos >> 3;
+    assert(bitC->bitPos < sizeof(bitC->bitContainer) * 8);
+    MEM_writeLEST(bitC->ptr, bitC->bitContainer);
+    bitC->ptr += nbBytes;
+    if (bitC->ptr > bitC->endPtr) bitC->ptr = bitC->endPtr;
+    bitC->bitPos &= 7;
+    bitC->bitContainer >>= nbBytes*8;
+}
+
+MEM_STATIC void FSE_encodeSymbol(BIT_CStream_t* bitC, FSE_CState_t* statePtr, U32 symbol)
+{
+    FSE_symbolCompressionTransform const symbolTT = ((const FSE_symbolCompressionTransform*)(statePtr->symbolTT))[symbol];
+    const U16* const stateTable = (const U16*)(statePtr->stateTable);
+    U32 const nbBitsOut  = (U32)((statePtr->value + symbolTT.deltaNbBits) >> 16);
+    BIT_addBits(bitC, statePtr->value, nbBitsOut);
+    statePtr->value = stateTable[ (statePtr->value >> nbBitsOut) + symbolTT.deltaFindState];
+}
+
+MEM_STATIC void FSE_flushCState(BIT_CStream_t* bitC, const FSE_CState_t* statePtr)
+{
+    BIT_addBits(bitC, statePtr->value, statePtr->stateLog);
+    BIT_flushBits(bitC);
+}
+
+size_t FSE_compress_usingCTable (void* dst, size_t dstSize,
+                           const void* src, size_t srcSize,
+                           const FSE_CTable* ct)
+{
+    unsigned const fast = (dstSize >= FSE_BLOCKBOUND(srcSize));
+
+    if (fast)
+        return FSE_compress_usingCTable_generic(dst, dstSize, src, srcSize, ct, 1);
+    else
+        return FSE_compress_usingCTable_generic(dst, dstSize, src, srcSize, ct, 0);
 }

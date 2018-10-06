@@ -20,10 +20,18 @@ class CompressedBlockState
 
     public static class Entropy
     {
+        HuffmanTable huffman;
+        FseTables fse;
     }
 
     public static class FseTables
     {
+        public int litlength_repeatMode;
+        public FseCompressionTable litlengthCTable;
+        public int offcode_repeatMode;
+        public FseCompressionTable offcodeCTable;
+        public int matchlength_repeatMode;
+        public FseCompressionTable matchlengthCTable;
     }
 
     public static class HuffmanTable
