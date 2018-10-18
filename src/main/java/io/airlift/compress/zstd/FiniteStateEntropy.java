@@ -147,12 +147,15 @@ class FiniteStateEntropy
         return (tableSize >>> 1) + (tableSize >>> 3) + 3;
     }
 
-    public static int spreadSymbols(short[] normalizedCounters, int symbolCount, int tableSize, int highThreshold, byte[] symbols)
+    public static int spreadSymbols(short[] normalizedCounters, int maxSymbolValue, int tableSize, int highThreshold, byte[] symbols)
     {
         int mask = tableSize - 1;
         int step = calculateStep(tableSize);
+
+        System.err.printf("maxSymbol: %d, mask: %d, step: %d, highThreshold:%d\n", maxSymbolValue, mask, step, highThreshold);
+
         int position = 0;
-        for (byte symbol = 0; symbol < symbolCount; symbol++) {
+        for (byte symbol = 0; symbol <= maxSymbolValue; symbol++) {
             for (int i = 0; i < normalizedCounters[symbol]; i++) {
                 symbols[position] = symbol;
                 do {

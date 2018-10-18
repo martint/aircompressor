@@ -194,6 +194,7 @@ class ZstdFrameCompressor
 
             int compressedSize = 0;
             if (remaining > 0) {
+                System.out.println("Compressing block. Remaining: " + remaining);
                 compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
             }
 
@@ -284,12 +285,10 @@ class ZstdFrameCompressor
             return compressedSize;
         }
 
-
-        /* Check compressibility */
+        // Check compressibility 
         int maxCompressedSize = inputSize - minGain(inputSize, parameters.getStrategy());
         if (compressedSize > maxCompressedSize) {
-            // TODO
-//            return 0; // not compressed
+            return 0; // not compressed
         }
 
         /* confirm repcodes and entropy tables */

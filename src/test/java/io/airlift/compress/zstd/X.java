@@ -16,7 +16,8 @@ package io.airlift.compress.zstd;
 import io.airlift.compress.AbstractTestCompression;
 import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
-import static com.google.common.base.Charsets.US_ASCII;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class X
 {
@@ -25,7 +26,10 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = "XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII); //new byte[100000]; //Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
+        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "alice29.txt"));
+        //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
+        // new byte[100000];
+        // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
 
         int maxCompressLength = compressor.maxCompressedLength(original.length);
         byte[] compressed = new byte[maxCompressLength];
@@ -35,9 +39,9 @@ public class X
         int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
         int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
 
-        for (int i = 0; i < compressedSize; i++) {
-            System.out.println("main.c: " + compressed[i]);
-        }
+//        for (int i = 0; i < compressedSize; i++) {
+//            System.out.println("main.c: " + compressed[i]);
+//        }
 
 //        AbstractTestCompression.assertByteArraysEqual(compressed, 0, compressedSize, control, 0, controlSize - 4); // don't include checksum
 

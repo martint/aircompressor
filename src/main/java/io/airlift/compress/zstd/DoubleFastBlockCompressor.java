@@ -283,9 +283,9 @@ class DoubleFastBlockCompressor
         CompressionContext context = new CompressionContext(parameters, data.length);
 
         DoubleFastBlockCompressor compressor = new DoubleFastBlockCompressor();
-        System.out.println(compressor.compressBlock(data, ARRAY_BYTE_BASE_OFFSET, context.blockSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters));
+        System.err.println(compressor.compressBlock(data, ARRAY_BYTE_BASE_OFFSET, context.blockSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters));
 
-        System.out.println(context.sequenceStore.sequenceCount);
-        System.out.println(context.sequenceStore.literalsOffset);
+        System.err.println(context.sequenceStore.sequenceCount);
+        System.err.println(context.sequenceStore.literalsOffset);
     }
 }

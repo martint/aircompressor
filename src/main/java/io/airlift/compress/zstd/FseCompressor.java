@@ -111,7 +111,7 @@ public class FseCompressor
         int outputBits = (state + fse.deltaNumberOfBits[symbol]) >> 16;
         stream.addBits(state, outputBits);
 
-        System.out.printf("symbol: %d, state: %d, bits: %d\n", symbol, state, outputBits);
+        System.err.printf("symbol: %d, state: %d, bits: %d\n", symbol, state, outputBits);
         
         return fse.nextState[(state >>> outputBits) + fse.deltaFindState[symbol]];
     }

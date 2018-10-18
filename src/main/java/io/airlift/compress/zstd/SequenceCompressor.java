@@ -474,7 +474,7 @@ class SequenceCompressor
                 int ofBits = ofCode;
                 int mlBits = ML_bits[mlCode];
 
-                System.out.printf("encoding: litlen:%2d - matchlen:%2d - offCode:%7d\n",
+                System.err.printf("encoding: litlen:%2d - matchlen:%2d - offCode:%7d\n",
                         sequences.literalLengths[n],
                         sequences.matchLengths[n] + MIN_MATCH,
                         sequences.offsets[n]);
@@ -949,9 +949,7 @@ class SequenceCompressor
         // Spread symbols
         int position = FiniteStateEntropy.spreadSymbols(normalizedCounts, maxSymbolValue, tableSize, highThreshold, tableSymbol);
 
-        if (position != 0) { // TODO
-            throw new IllegalStateException();   /* Must have gone through all positions */
-        }
+        verify(position == 0, "Spread symbols failed");
 
         // Build table
         for (int i = 0; i < tableSize; i++) {
