@@ -57,6 +57,8 @@ public class Constants
     static final int MATCH_LENGTH_FSE_LOG = 9;
     static final int OFFSET_CODES_FSE_LOG = 8;
 
+    public static final int MIN_MATCH = 3;
+
     private Constants()
     {
     }

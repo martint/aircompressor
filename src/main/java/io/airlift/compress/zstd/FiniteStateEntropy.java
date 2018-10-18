@@ -22,6 +22,10 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 class FiniteStateEntropy
 {
     public static final int MAX_TABLE_LOG = 12;
+    public static final int MIN_TABLE_LOG = 5;
+    public static final int DEFAULT_TABLE_LOG = 11;
+
+    public static final int FSE_NCOUNTBOUND = 512; // TODO: rename
 
     public static int decompress(FiniteStateEntropy.Table table, final Object inputBase, final long inputAddress, final long inputLimit, byte[] outputBuffer)
     {
@@ -136,6 +140,72 @@ class FiniteStateEntropy
         }
 
         return (int) (output - outputAddress);
+    }
+
+    public static int calculateStep(int tableSize)
+    {
+        return (tableSize >>> 1) + (tableSize >>> 3) + 3;
+    }
+
+    public static int spreadSymbols(short[] normalizedCounters, int symbolCount, int tableSize, int highThreshold, byte[] symbols)
+    {
+        int mask = tableSize - 1;
+        int step = calculateStep(tableSize);
+        int position = 0;
+        for (byte symbol = 0; symbol < symbolCount; symbol++) {
+            for (int i = 0; i < normalizedCounters[symbol]; i++) {
+                symbols[position] = symbol;
+                do {
+                    position = (position + step) & mask;
+                }
+                while (position > highThreshold);
+            }
+        }
+        return position;
+    }
+
+    public static int optimalTableLog(int maxTableLog, int srcSize, int maxSymbolValue)
+    {
+        if (srcSize <= 1) {
+            throw new IllegalArgumentException(); // not supported. Use RLE instead
+        }
+
+        int tableLog = maxTableLog;
+        if (tableLog == 0) {
+            tableLog = DEFAULT_TABLE_LOG;
+        }
+
+        int maxBitsSrc = Util.highestBit((srcSize - 1)) - 2;
+        if (maxBitsSrc < tableLog) {
+            tableLog = maxBitsSrc;   /* Accuracy can be reduced */
+        }
+
+        int minBits = minTableLog(srcSize, maxSymbolValue);
+        if (minBits > tableLog) {
+            tableLog = minBits;   /* Need a minimum to safely represent all symbol values */
+        }
+
+        if (tableLog < MIN_TABLE_LOG) {
+            tableLog = MIN_TABLE_LOG;
+        }
+
+        if (tableLog > MAX_TABLE_LOG) {
+            tableLog = MAX_TABLE_LOG;
+        }
+
+        return tableLog;
+    }
+
+    /* provides the minimum logSize to safely represent a distribution */
+    public static int minTableLog(int inputSize, int maxSymbolValue)
+    {
+        if (inputSize <= 1) {
+            throw new IllegalArgumentException("Not supported. RLE should be used instead"); // TODO
+        }
+
+        int minBitsSrc = Util.highestBit((inputSize - 1)) + 1;
+        int minBitsSymbols = Util.highestBit(maxSymbolValue) + 2;
+        return Math.min(minBitsSrc, minBitsSymbols);
     }
 
     public static final class Table

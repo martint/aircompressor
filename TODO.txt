@@ -1,5 +1,6 @@
 * SequenceStore.longLengthID
 * Increase MaxOff: bbe77212efebcfefb6b510f2509a674a5dd25245
 * https://github.com/facebook/zstd/pull/1146
+* addBits and baseline into FSE decoding table: 95424409eab01b82c6dea5186e4235a219d090f2
 
 * Replace verify() in compressor w/ appropriate impl for compressor (current implementation throws MalformedInputException)

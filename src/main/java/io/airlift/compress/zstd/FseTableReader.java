@@ -19,8 +19,6 @@ import static io.airlift.compress.zstd.Util.verify;
 
 class FseTableReader
 {
-    private static final int FSE_MIN_TABLE_LOG = 5;
-
     public static final int FSE_MAX_SYMBOL_VALUE = 255;
     private final short[] nextSymbol = new short[FSE_MAX_SYMBOL_VALUE + 1];
     private final short[] normalizedCounters = new short[FSE_MAX_SYMBOL_VALUE + 1];
@@ -37,7 +35,7 @@ class FseTableReader
 
         int bitStream = UNSAFE.getInt(inputBase, input);
 
-        int tableLog = (bitStream & 0xF) + FSE_MIN_TABLE_LOG;
+        int tableLog = (bitStream & 0xF) + FiniteStateEntropy.MIN_TABLE_LOG;
 
         int numberOfBits = tableLog + 1;
         bitStream >>>= 4;
@@ -145,19 +143,7 @@ class FseTableReader
             }
         }
 
-        // spread symbols
-        int tableMask = tableSize - 1;
-        int step = (tableSize >>> 1) + (tableSize >>> 3) + 3;
-        int position = 0;
-        for (byte symbol = 0; symbol < symbolCount; symbol++) {
-            for (int i = 0; i < normalizedCounters[symbol]; i++) {
-                table.symbol[position] = symbol;
-                do {
-                    position = (position + step) & tableMask;
-                }
-                while (position > highThreshold);
-            }
-        }
+        int position = FiniteStateEntropy.spreadSymbols(normalizedCounters, symbolCount, tableSize, highThreshold, table.symbol);
 
         // position must reach all cells once, otherwise normalizedCounter is incorrect
         verify(position == 0, input, "Input is corrupted");

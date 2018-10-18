@@ -43,6 +43,14 @@ class Util
         }
     }
 
+    public static void verify(boolean condition, String reason)
+    {
+        if (!condition) {
+            // TODO
+            throw new RuntimeException(reason);
+        }
+    }
+
     public static MalformedInputException fail(long offset, String reason)
     {
         throw new MalformedInputException(offset, reason);

@@ -99,21 +99,24 @@ public class FseCompressor
         return stream.close();
     }
 
-    private static int initialize(FseCompressionTable fse, byte symbol)
+    public static int initialize(FseCompressionTable fse, byte symbol)
     {
-        int outputBits = fse.deltaNumberOfBits[symbol] + (1 << 15) >>> 16;
+        int outputBits = (fse.deltaNumberOfBits[symbol] + (1 << 15)) >>> 16;
         int base = ((outputBits << 16) - fse.deltaNumberOfBits[symbol]) >>> outputBits;
-        return fse.table[base + fse.deltaFindState[symbol]];
+        return fse.nextState[base + fse.deltaFindState[symbol]];
     }
 
-    private static int encode(BitstreamEncoder stream, FseCompressionTable fse, int state, int symbol)
+    public static int encode(BitstreamEncoder stream, FseCompressionTable fse, int state, int symbol)
     {
         int outputBits = (state + fse.deltaNumberOfBits[symbol]) >> 16;
         stream.addBits(state, outputBits);
-        return fse.table[(state >>> outputBits) + fse.deltaFindState[symbol]];
+
+        System.out.printf("symbol: %d, state: %d, bits: %d\n", symbol, state, outputBits);
+        
+        return fse.nextState[(state >>> outputBits) + fse.deltaFindState[symbol]];
     }
 
-    private static void flush(BitstreamEncoder stream, FseCompressionTable fse, int state)
+    public static void flush(BitstreamEncoder stream, FseCompressionTable fse, int state)
     {
         stream.addBits(state, fse.log2Size);
         stream.flush();

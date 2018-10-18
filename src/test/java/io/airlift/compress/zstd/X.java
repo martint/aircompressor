@@ -13,26 +13,36 @@
  */
 package io.airlift.compress.zstd;
 
+import io.airlift.compress.AbstractTestCompression;
 import io.airlift.compress.thirdparty.ZstdJniCompressor;
+
+import static com.google.common.base.Charsets.US_ASCII;
 
 public class X
 {
     public static void main(String[] args)
             throws Exception
     {
-        byte[] data = new byte[0]; //Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
-        byte[] compressed = new byte[data.length * 2 + 30];
-        byte[] compressed2 = new byte[data.length * 2 + 30];
-        byte[] decompressed = new byte[data.length * 2 + 30];
+        ZstdCompressor compressor = new ZstdCompressor();
 
-        int compressedSize = new ZstdJniCompressor(0).compress(data, 0, data.length, compressed, 0, compressed.length);
-        int compressedSize2 = ZstdFrameCompressor.compress(data, 16, 16 + data.length, compressed2, 16, 16 + compressed2.length, 3);
+        byte[] original = "XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII); //new byte[100000]; //Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
+
+        int maxCompressLength = compressor.maxCompressedLength(original.length);
+        byte[] compressed = new byte[maxCompressLength];
+        byte[] control = new byte[maxCompressLength];
+        byte[] decompressed = new byte[original.length];
+
+        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
+        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+
+        for (int i = 0; i < compressedSize; i++) {
+            System.out.println("main.c: " + compressed[i]);
+        }
+
+//        AbstractTestCompression.assertByteArraysEqual(compressed, 0, compressedSize, control, 0, controlSize - 4); // don't include checksum
 
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
-//        int decompressedSize = new ZstdDecompressor().decompress(compressed2, 0, compressedSize2, decompressed, 0, decompressed.length);
-//        int decompressedSize2 = new ZstdJniDecompressor().decompress(compressed2, 0, compressedSize2, decompressed, 0, decompressed.length);
-
-        System.out.println();
+        AbstractTestCompression.assertByteArraysEqual(original, 0, original.length, decompressed, 0, decompressedSize);
     }
 
 }

@@ -251,7 +251,6 @@ class ZstdFrameCompressor
         context.sequenceStore.reset();
 /*
         ZSTD_matchState_t* const ms = &zc->blockState.matchState;
-        ZSTD_resetSeqStore(&(zc->seqStore));
         ms->opt.symbolCosts = &zc->blockState.prevCBlock->entropy;   *//* required for optimal parser to read stats from dictionary *//*
 
      *//* limited update after a very long match *//*
@@ -269,17 +268,28 @@ class ZstdFrameCompressor
         }
 
         
-        int lastLiteralsSize = parameters.getStrategy().getCompressor().compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);
+        int lastLiteralsSize = parameters.getStrategy()
+                .getCompressor()
+                .compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);
+        
         long lastLiteralsAddress = inputAddress + inputSize - lastLiteralsSize;
 
         // append [lastLiteralsAddress .. lastLiteralsSize] to sequenceStore literals buffer
         context.sequenceStore.appendLiterals(inputBase, lastLiteralsAddress, lastLiteralsSize);
 
-        int compressedSize = new SequenceCompressor().compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize, new int[0]);
+        int compressedSize = SequenceCompressor.compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize);
 
         if (compressedSize == 0) {
             // not compressible
             return compressedSize;
+        }
+
+
+        /* Check compressibility */
+        int maxCompressedSize = inputSize - minGain(inputSize, parameters.getStrategy());
+        if (compressedSize > maxCompressedSize) {
+            // TODO
+//            return 0; // not compressed
         }
 
         /* confirm repcodes and entropy tables */
@@ -288,6 +298,13 @@ class ZstdFrameCompressor
         context.blockState.next = temp;
 
         return compressedSize;
+    }
+
+    private static int minGain(int inputSize, CompressionParameters.Strategy strategy)
+    {
+//        U32 const minlog = (strat==ZSTD_btultra) ? 7 : 6;
+        int minlog = 6;
+        return (inputSize >> minlog) + 2;
     }
 
     /**

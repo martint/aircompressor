@@ -15,10 +15,10 @@ package io.airlift.compress.zstd;
 
 public class FseCompressionTable
 {
-    final int log2Size;
-    final int maxSymbol;
+    int log2Size;
+    int maxSymbol;
 
-    public final short[] table;
+    public final short[] nextState;
     public final int[] deltaNumberOfBits;
     public final int[] deltaFindState;
 
@@ -26,21 +26,32 @@ public class FseCompressionTable
     {
         log2Size = maxTableLog;
         maxSymbol = maxSymbolValue;
-        table = new short[1 << maxTableLog];
+        nextState = new short[1 << maxTableLog];
         deltaNumberOfBits = new int[maxSymbolValue + 1];
         deltaFindState = new int[maxSymbolValue + 1];
     }
 
-    public static FseCompressionTable makeRleTable(int symbol)
+    public static FseCompressionTable makeRleTable(FseCompressionTable table, int symbol)
     {
-        FseCompressionTable table = new FseCompressionTable(0, symbol);
+        table.log2Size = 0;
 
-        table.table[0] = 0;
-        table.table[1] = 0;
+        table.nextState[0] = 0;
+        table.nextState[1] = 0;
 
         table.deltaFindState[symbol] = 0;
         table.deltaNumberOfBits[symbol] = 0;
 
         return table;
+    }
+
+    public void copy(FseCompressionTable other)
+    {
+        if (other.log2Size != log2Size || other.maxSymbol != maxSymbol) {
+            throw new IllegalArgumentException();
+        }
+
+        System.arraycopy(other.deltaNumberOfBits, 0, deltaNumberOfBits, 0, other.deltaNumberOfBits.length);
+        System.arraycopy(other.deltaFindState, 0, deltaFindState, 0, other.deltaFindState.length);
+        System.arraycopy(other.nextState, 0, nextState, 0, other.nextState.length);
     }
 }

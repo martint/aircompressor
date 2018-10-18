@@ -13,7 +13,9 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
+import static io.airlift.compress.zstd.Util.verify;
 
 public class BitstreamEncoder
 {
@@ -35,12 +37,14 @@ public class BitstreamEncoder
 
     public BitstreamEncoder(Object outputBase, long outputAddress, int outputSize)
     {
+        verify(outputSize >= SIZE_OF_LONG, "Output buffer too small");
+
         this.outputBase = outputBase;
 
         container = 0;
         bitCount = 0;
         this.outputAddress = outputAddress;
-        outputLimit = this.outputAddress + outputSize;
+        outputLimit = this.outputAddress + outputSize - SIZE_OF_LONG;
 
         currentAddress = this.outputAddress;
     }
