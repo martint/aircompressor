@@ -18,6 +18,7 @@ import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 public class X
 {
@@ -26,7 +27,7 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "alice29.txt"));
+        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "grammar.lsp"));
         //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
         // new byte[100000];
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
@@ -39,12 +40,15 @@ public class X
         int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
         int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
 
+        System.err.println("decompressing");
 //        for (int i = 0; i < compressedSize; i++) {
 //            System.out.println("main.c: " + compressed[i]);
 //        }
 
 //        AbstractTestCompression.assertByteArraysEqual(compressed, 0, compressedSize, control, 0, controlSize - 4); // don't include checksum
 
+        Files.write(Paths.get("corrupted.zst"), Arrays.copyOf(compressed, compressedSize));
+        
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
         AbstractTestCompression.assertByteArraysEqual(original, 0, original.length, decompressed, 0, decompressedSize);
     }
