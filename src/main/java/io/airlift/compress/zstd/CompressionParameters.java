@@ -262,11 +262,11 @@ class CompressionParameters
         }
 
         if (hashLog > windowLog + 1) {
-            hashLog = defaultParameters.windowLog + 1;
+            hashLog = windowLog + 1;
         }
 
-        int cycleLog = cycleLog(hashLog, strategy);
-
+        int cycleLog = cycleLog(chainLog, strategy);
+        DebugLog.print("cycleLog = %d, hashLog = %d, windowLog = %d", cycleLog, chainLog, windowLog);
         if (cycleLog > windowLog) {
             chainLog -= (cycleLog - windowLog);
         }

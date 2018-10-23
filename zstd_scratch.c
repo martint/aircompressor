@@ -513,7 +513,9 @@ ZSTD_compressionParameters ZSTD_getCParams(int compressionLevel, unsigned long l
         if (cp.windowLog > srcLog) cp.windowLog = srcLog;
     }
     if (cp.hashLog > cp.windowLog+1) cp.hashLog = cp.windowLog+1;
-    {   U32 const cycleLog = ZSTD_cycleLog(cp.chainLog, cp.strategy);
+    {
+        U32 const cycleLog = ZSTD_cycleLog(cp.chainLog, cp.strategy);
+        DEBUGLOG(6, "cycleLog = %d, windowLog = %d", cycleLog, cp.windowLog);
         if (cycleLog > cp.windowLog)
             cp.chainLog -= (cycleLog - cp.windowLog);
     }

@@ -13,6 +13,7 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.DoubleFastBlockCompressor.MIN_MATCH;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -57,11 +58,11 @@ class SequenceStore
 
     public void storeSequence(Object literalBase, long literalAddress, int literalLength, int offsetCode, int matchLengthBase)
     {
-//        if (start == 0) {
-//            start = literalAddress;
-//        }
-//        long index = literalAddress - start;
-//        System.out.printf("Cpos%7d :%3d literals, match%4d bytes at offCode%7d\n", index, literalLength, matchLengthBase + MIN_MATCH, offsetCode);
+        if (start == 0) {
+            start = literalAddress;
+        }
+        long index = literalAddress - start;
+        DebugLog.print("Cpos%7d :%3d literals, match%4d bytes at offCode%7d", index, literalLength, matchLengthBase + MIN_MATCH, offsetCode);
 
         // TODO: ZSTD_wildcopy
         UNSAFE.copyMemory(literalBase, literalAddress, literalsBuffer, ARRAY_BYTE_BASE_OFFSET + literalsOffset, literalLength);

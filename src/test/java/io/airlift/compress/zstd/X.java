@@ -27,7 +27,7 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "grammar.lsp"));
+        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "cp.html"));
         //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
         // new byte[100000];
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));

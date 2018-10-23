@@ -54,7 +54,7 @@ class DoubleFastBlockCompressor
 
         int offsetSaved = 0;
 
-//        System.out.printf("prefixLowestIndex: %d, hBitsL: %d, hBitsS: %d, srcSize: %d, offset_1: %d, offset_2: %d, mls: %d\n", prefixLowestIndex, longHashBits, shortHashBits, inputSize, offset1, offset2, matchSearchLength);
+        DebugLog.print("prefixLowestIndex: %d, hBitsL: %d, hBitsS: %d, srcSize: %d, offset_1: %d, offset_2: %d, mls: %d", prefixLowestIndex, longHashBits, shortHashBits, inputSize, offset1, offset2, matchSearchLength);
 
         int dictAndPrefixLength = (int) (input - prefixLowest);
 
@@ -85,7 +85,7 @@ class DoubleFastBlockCompressor
             longHashTable[longHash] = current;
             shortHashTable[shortHash] = current;
 
-//            System.out.printf("main loop: h=%d, h2=%d, current=%d, matchIndexL=%d, matchIndexS=%d\n", shortHash, longHash, current, longMatchOffset, shortMatchOffset);
+            DebugLog.print("main loop: h=%d, h2=%d, current=%d, matchIndexL=%d, matchIndexS=%d", shortHash, longHash, current, longMatchOffset, shortMatchOffset);
 
             int matchLength;
             int offset;

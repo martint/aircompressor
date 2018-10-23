@@ -58,6 +58,8 @@ public class BitstreamEncoder
     public void flush()
     {
         int bytes = bitCount >>> 3;
+        DebugLog.print("Writing at %d: %x, %d bytes", currentAddress, container, bytes);
+
         UNSAFE.putLong(outputBase, currentAddress, container);
         currentAddress += bytes;
 

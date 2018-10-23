@@ -102,6 +102,7 @@ public class FseCompressor
     public static int initialize(FseCompressionTable fse, byte symbol)
     {
         int outputBits = (fse.deltaNumberOfBits[symbol] + (1 << 15)) >>> 16;
+        DebugLog.print("FSE initialize: symbol=%d, deltaNbBits=%d, deltaFindState=%d, nbBitsOut=%d", symbol, fse.deltaNumberOfBits[symbol], fse.deltaFindState[symbol], outputBits);
         int base = ((outputBits << 16) - fse.deltaNumberOfBits[symbol]) >>> outputBits;
         return fse.nextState[base + fse.deltaFindState[symbol]];
     }
@@ -111,7 +112,7 @@ public class FseCompressor
         int outputBits = (state + fse.deltaNumberOfBits[symbol]) >> 16;
         stream.addBits(state, outputBits);
 
-        System.err.printf("symbol: %d, state: %d, bits: %d\n", symbol, state, outputBits);
+        DebugLog.print("FSE encode: symbol = %d, state = %d, bits = %d", symbol, state, outputBits);
         
         return fse.nextState[(state >>> outputBits) + fse.deltaFindState[symbol]];
     }

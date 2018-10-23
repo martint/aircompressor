@@ -104,13 +104,15 @@ class SequenceCompressor
         /* Sequences Header */
         verify(outputLimit - output > 3 /*max sequenceCount Size*/ + 1 /*seqHead*/, outputAddress, "Output buffer too small");
 
+        DebugLog.print("Writing %d sequences at offset %d", sequenceCount, output);
+        
         if (sequenceCount < 0x7F) {
             UNSAFE.putByte(outputBase, output, (byte) sequenceCount);
             output++;
         }
         else if (sequenceCount < LONGNBSEQ) {
             UNSAFE.putByte(outputBase, output, (byte) (sequenceCount >>> 8 | 0x80));
-            UNSAFE.putByte(outputBase, output, (byte) sequenceCount);
+            UNSAFE.putByte(outputBase, output + 1, (byte) sequenceCount);
             output += SIZE_OF_SHORT;
         }
         else {
@@ -142,6 +144,7 @@ class SequenceCompressor
 
         // literal lengths
         {
+            DebugLog.print("Building LL table");
             int maxTheoreticalSymbol = MAX_LITERALS_LENGTH_SYMBOL;
             int fseLog = LITERALS_LENGTH_FSE_LOG;
             FseCompressionTable previous = previousEntropy.literalLengths.table;
@@ -184,6 +187,8 @@ class SequenceCompressor
 
         // offset codes
         {
+            DebugLog.print("Building OF table");
+
             CompressedBlockState.RepeatMode repeatMode = nextEntropy.offsetCodes.repeatMode;
             int fseLog = OFFSET_CODES_FSE_LOG;
             FseCompressionTable previous = previousEntropy.offsetCodes.table;
@@ -229,6 +234,8 @@ class SequenceCompressor
 
         // match lengths
         {
+            DebugLog.print("Building ML table");
+
             int fseLog = MATCH_LENGTH_FSE_LOG;
             FseCompressionTable previous = previousEntropy.matchLengths.table;
             short[] defaultNorms = MATCH_LENGTH_DEFAULT_NORMS;
@@ -270,7 +277,9 @@ class SequenceCompressor
         }
 
         // TODO: can avoid having to accumulate encoding types for each section by reading current value from output, doing an | with new value and storing again
-        UNSAFE.putByte(outputBase, seqHead, (byte) ((literalsLengthEncodingType << 6) | (offsetEncodingType << 4) | (matchLengthEncodingType << 2)));
+        byte encodingTypeHeader = (byte) ((literalsLengthEncodingType << 6) | (offsetEncodingType << 4) | (matchLengthEncodingType << 2));
+        DebugLog.print("Writing FSE encoding type header at offset %d: %x", seqHead, encodingTypeHeader);
+        UNSAFE.putByte(outputBase, seqHead, encodingTypeHeader);
 
         output += encodeSequences(
                 outputBase,
@@ -438,14 +447,21 @@ class SequenceCompressor
         byte[] ofCodeTable = sequences.offsetCodes;
         byte[] llCodeTable = sequences.literalLengthCodes;
 
+        DebugLog.print("Encoding %d sequences at offset %d", sequences.sequenceCount, output);
+        for (int i = 0; i < sequences.sequenceCount; i++) {
+            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengths[i], sequences.matchLengths[i] + MIN_MATCH, sequences.offsets[i]);
+        }
+        
         BitstreamEncoder blockStream = new BitstreamEncoder(outputBase, output, (int) (outputLimit - output));
 
         int nbSeq = sequences.sequenceCount;
 
         // first symbols
+        DebugLog.print("First sequence: ll code: %d, ml code: %d, off code: %d", llCodeTable[nbSeq - 1], mlCodeTable[nbSeq - 1], ofCodeTable[nbSeq - 1]);
         int stateMatchLength = FseCompressor.initialize(matchLengthTable, mlCodeTable[nbSeq - 1]);
         int stateOffsetBits = FseCompressor.initialize(offsetBitsTable, ofCodeTable[nbSeq - 1]);
         int stateLiteralLength = FseCompressor.initialize(literalLengthTable, llCodeTable[nbSeq - 1]);
+        DebugLog.print("First sequence: ll state: %d, ml state: %d, off state: %d", stateLiteralLength, stateMatchLength, stateOffsetBits);
 
         blockStream.addBits(sequences.literalLengths[nbSeq - 1], LL_bits[llCodeTable[nbSeq - 1]]);
         blockStream.addBits(sequences.matchLengths[nbSeq - 1], ML_bits[mlCodeTable[nbSeq - 1]]);
@@ -474,7 +490,7 @@ class SequenceCompressor
                 int ofBits = ofCode;
                 int mlBits = ML_bits[mlCode];
 
-                System.err.printf("encoding: litlen:%2d - matchlen:%2d - offCode:%7d\n",
+                DebugLog.print("encoding: litlen:%2d - matchlen:%2d - offCode:%7d",
                         sequences.literalLengths[n],
                         sequences.matchLengths[n] + MIN_MATCH,
                         sequences.offsets[n]);
@@ -587,6 +603,8 @@ class SequenceCompressor
 
         UNSAFE.copyMemory(inputBase, inputAddress, outputBase, outputAddress + headerSize, inputSize);
 
+        DebugLog.print("Writing raw literals at offset %d, size: %d", outputAddress, headerSize + inputSize);
+
         return headerSize + inputSize;
     }
 
@@ -606,6 +624,7 @@ class SequenceCompressor
 
     private static Histogram count(byte[] input, int length, int maxSymbol)
     {
+        DebugLog.print("Computing histogram. Input size = %d", length);
         // TODO: HIST_count_parallel_wksp heuristic
 
         // TODO: allocate once per compressor & fill with 0s:  int[] counts = new int[MAX_SEQUENCES + 1];
@@ -630,6 +649,10 @@ class SequenceCompressor
             }
         }
 
+        for (int i = 0; i < maxSymbol; i++) {
+            DebugLog.print("symbol = %d, count = %d", i, counts[i]);
+        }
+        
         return new Histogram(maxSymbol, largestCount, counts);
     }
 
@@ -664,8 +687,10 @@ class SequenceCompressor
                  * since RLE uses 1 byte, but set_basic uses 5-6 bits per symbol.
                  * If basic encoding isn't possible, always choose RLE.
                  */
+                DebugLog.print("Selected set_basic");
                 return new EncodingType(SEQUENCE_ENCODING_BASIC, REPEAT_NONE);
             }
+            DebugLog.print("Selected set_rle");
             return new EncodingType(SEQUENCE_ENCODING_RLE, REPEAT_NONE);
         }
 
@@ -677,6 +702,7 @@ class SequenceCompressor
                 long dynamicFse_nbSeq_min = ((1L << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
 
                 if ((repeatMode == REPEAT_VALID) && (sequenceCount < staticFse_nbSeq_max)) {
+                    DebugLog.print("Selected set_repeat");
                     return new EncodingType(SEQUENCE_ENCODING_REPEAT, REPEAT_VALID);
                 }
 
@@ -687,6 +713,7 @@ class SequenceCompressor
                      * analysis, we don't need to waste time checking both repeating tables
                      * and default tables.
                      */
+                    DebugLog.print("Selected set_basic");
                     return new EncodingType(SEQUENCE_ENCODING_BASIC, REPEAT_NONE);
                 }
             }
@@ -696,6 +723,7 @@ class SequenceCompressor
             throw new UnsupportedOperationException("not yet implemented");
         }
 
+        DebugLog.print("Selected set_compressed");
         return new EncodingType(SEQUENCE_ENCODING_COMPRESSED, CompressedBlockState.RepeatMode.REPEAT_CHECK);
     }
 
@@ -703,6 +731,8 @@ class SequenceCompressor
     {
         long output = outputAddress;
         long outputLimit = outputAddress + outputSize;
+
+        DebugLog.print("Writing encoding type header at offset %d: %d", output, encodingType);
 
         switch (encodingType) {
             case SEQUENCE_ENCODING_RLE:
@@ -722,13 +752,15 @@ class SequenceCompressor
                 int tableLog = optimalTableLog(fseLog, numberOfSequences, maxSymbol);
                 if (counts[codeTable[numberOfSequences - 1]] > 1) {
                     counts[codeTable[numberOfSequences - 1]]--;
+                    nbSeq_1--;
                 }
-                nbSeq_1--;
 
                 normalizeCounts(norm, tableLog, counts, nbSeq_1, maxSymbol);
 
-                int size = writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), norm, maxSymbol, tableLog); // TODO: pass outputLimit directlyt
+                int size = writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), norm, maxSymbol, tableLog); // TODO: pass outputLimit directly
                 buildCompressionTable(nextCompressionTable, norm, maxSymbol, tableLog);
+
+                DebugLog.print("Writing FSE table definition at offset %d, size = %d", output, size);
                 return size;
         }
 
@@ -769,12 +801,15 @@ class SequenceCompressor
             }
             else {
                 short probability = (short) ((counts[symbol] * step) >>> scale);
+                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
                 if (probability < 8) {
                     long restToBeat = vstep * REST_TO_BEAT[probability];
+                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
                     long delta = counts[symbol] * step - (((long) probability) << scale);
                     if (delta > restToBeat) {
                         probability++;
                     }
+                    DebugLog.print("probability = %d", probability);
                 }
                 if (probability > largestProbability) {
                     largestProbability = probability;
@@ -794,6 +829,10 @@ class SequenceCompressor
             normalizedCounts[largest] += (short) stillToDistribute;
         }
 
+        for (int i = 0; i <= maxSymbol; i++) {
+            DebugLog.print("%3d: %4d", i, normalizedCounts[i]);
+        }
+        
         return tableLog;
 //
 //#if 0

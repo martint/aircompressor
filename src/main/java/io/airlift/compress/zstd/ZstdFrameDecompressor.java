@@ -460,6 +460,8 @@ class ZstdFrameDecompressor
                     bitsConsumed += literalsLengthBits;
                 }
 
+                DebugLog.print("Sequence: ll = %d, ml = %d, off = %d", literalsLength, matchLength, offset);
+                
                 int totalBits = literalsLengthBits + matchLengthBits + offsetBits;
                 if (totalBits > 64 - 7 - (Constants.LITERALS_LENGTH_FSE_LOG + Constants.MATCH_LENGTH_FSE_LOG + Constants.OFFSET_CODES_FSE_LOG)) {
                     BitStream.Loader loader1 = new BitStream.Loader(inputBase, input, currentAddress, bits, bitsConsumed);

@@ -152,7 +152,7 @@ class FiniteStateEntropy
         int mask = tableSize - 1;
         int step = calculateStep(tableSize);
 
-        System.err.printf("maxSymbol: %d, mask: %d, step: %d, highThreshold:%d\n", maxSymbolValue, mask, step, highThreshold);
+        DebugLog.print("maxSymbol: %d, mask: %d, step: %d, highThreshold:%d", maxSymbolValue, mask, step, highThreshold);
 
         int position = 0;
         for (byte symbol = 0; symbol <= maxSymbolValue; symbol++) {
