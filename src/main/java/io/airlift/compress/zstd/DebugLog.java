@@ -13,14 +13,29 @@
  */
 package io.airlift.compress.zstd;
 
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+
 public class DebugLog
 {
-    private static final boolean ENABLED = true;
+    private static final boolean ENABLED = false;
+    private static final PrintWriter out;
+
+    static {
+        try {
+            out = new PrintWriter("debug.txt");
+        }
+        catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public static void print(String format, Object... args)
     {
         if (ENABLED) {
             System.err.printf(format + "\n", args);
+            out.printf(format + "\n", args);
+            out.flush();
         }
     }
 }

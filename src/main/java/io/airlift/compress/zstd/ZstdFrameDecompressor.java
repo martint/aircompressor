@@ -384,6 +384,7 @@ class ZstdFrameDecompressor
             int[] offsetCodesNewStates = currentOffsetCodesTable.newState;
             byte[] offsetCodesSymbols = currentOffsetCodesTable.symbol;
 
+            int i = 0;
             while (sequenceCount > 0) {
                 sequenceCount--;
 
@@ -405,6 +406,9 @@ class ZstdFrameDecompressor
                 int literalsLengthBits = LITERALS_LENGTH_BITS[literalsLengthCode];
                 int matchLengthBits = MATCH_LENGTH_BITS[matchLengthCode];
                 int offsetBits = offsetCode;
+
+//                DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, literalsLengthCode, matchLengthCode, offsetCode);
+                i++;
 
                 int offset = OFFSET_CODES_BASE[offsetCode];
                 if (offsetCode > 0) {
@@ -460,8 +464,6 @@ class ZstdFrameDecompressor
                     bitsConsumed += literalsLengthBits;
                 }
 
-                DebugLog.print("Sequence: ll = %d, ml = %d, off = %d", literalsLength, matchLength, offset);
-                
                 int totalBits = literalsLengthBits + matchLengthBits + offsetBits;
                 if (totalBits > 64 - 7 - (Constants.LITERALS_LENGTH_FSE_LOG + Constants.MATCH_LENGTH_FSE_LOG + Constants.OFFSET_CODES_FSE_LOG)) {
                     BitStream.Loader loader1 = new BitStream.Loader(inputBase, input, currentAddress, bits, bitsConsumed);

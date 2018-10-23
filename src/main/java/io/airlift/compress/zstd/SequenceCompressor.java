@@ -19,7 +19,6 @@ import static io.airlift.compress.zstd.Constants.DEFAULT_MAX_OFFSET_CODE_SYMBOL;
 import static io.airlift.compress.zstd.Constants.LITERALS_LENGTH_FSE_LOG;
 import static io.airlift.compress.zstd.Constants.MATCH_LENGTH_FSE_LOG;
 import static io.airlift.compress.zstd.Constants.MAX_OFFSET_CODE_SYMBOL;
-import static io.airlift.compress.zstd.Constants.MIN_MATCH;
 import static io.airlift.compress.zstd.Constants.OFFSET_CODES_FSE_LOG;
 import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_BASIC;
 import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_COMPRESSED;
@@ -284,7 +283,7 @@ class SequenceCompressor
         output += encodeSequences(
                 outputBase,
                 output,
-                outputLimit - output,
+                outputLimit,
                 nextEntropy.matchLengths.table,
                 nextEntropy.offsetCodes.table,
                 nextEntropy.literalLengths.table,
@@ -449,7 +448,8 @@ class SequenceCompressor
 
         DebugLog.print("Encoding %d sequences at offset %d", sequences.sequenceCount, output);
         for (int i = 0; i < sequences.sequenceCount; i++) {
-            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengths[i], sequences.matchLengths[i] + MIN_MATCH, sequences.offsets[i]);
+//            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengthCodes[i], sequences.matchLengthCodes[i], sequences.offsetCodes[i]);
+//            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengths[i], sequences.matchLengths[i] + MIN_MATCH, sequences.offsets[i]);
         }
         
         BitstreamEncoder blockStream = new BitstreamEncoder(outputBase, output, (int) (outputLimit - output));
@@ -490,10 +490,7 @@ class SequenceCompressor
                 int ofBits = ofCode;
                 int mlBits = ML_bits[mlCode];
 
-                DebugLog.print("encoding: litlen:%2d - matchlen:%2d - offCode:%7d",
-                        sequences.literalLengths[n],
-                        sequences.matchLengths[n] + MIN_MATCH,
-                        sequences.offsets[n]);
+//                DebugLog.print("encoding: litlen:%2d - matchlen:%2d - offCode:%7d", sequences.literalLengths[n], sequences.matchLengths[n] + MIN_MATCH, sequences.offsets[n]);
 
                 //
                 // (7)
@@ -531,12 +528,17 @@ class SequenceCompressor
             }
         }
 
+        DebugLog.print("flushing ML state with %d bits", matchLengthTable.log2Size);
         FseCompressor.flush(blockStream, matchLengthTable, stateMatchLength);
+        DebugLog.print("flushing OF state with %d bits", offsetBitsTable.log2Size);
         FseCompressor.flush(blockStream, offsetBitsTable, stateOffsetBits);
+        DebugLog.print("flushing LL state with %d bits", literalLengthTable.log2Size);
         FseCompressor.flush(blockStream, literalLengthTable, stateLiteralLength);
 
         int streamSize = blockStream.close();
         verify(streamSize > 0, "Output buffer too small");
+
+        DebugLog.print("FSE stream size = %d", streamSize);
 
         return streamSize;
     }
@@ -823,7 +825,7 @@ class SequenceCompressor
         if (-stillToDistribute >= (normalizedCounts[largest] >>> 1)) {
             // corner case. Need another normalization method
             // TODO size_t const errorCode = FSE_normalizeM2(normalizedCounter, tableLog, count, total, maxSymbolValue);
-            return normalizeCounts2(normalizedCounts, tableLog, counts, total, maxSymbol);
+            normalizeCounts2(normalizedCounts, tableLog, counts, total, maxSymbol);
         }
         else {
             normalizedCounts[largest] += (short) stillToDistribute;
@@ -834,23 +836,6 @@ class SequenceCompressor
         }
         
         return tableLog;
-//
-//#if 0
-//            {   /* Print Table (debug) */
-//                U32 s;
-//                U32 nTotal = 0;
-//                for (s=0; s<=maxSymbolValue; s++)
-//                    RAWLOG(2, "%3i: %4i \n", s, normalizedCounter[s]);
-//                for (s=0; s<=maxSymbolValue; s++)
-//                    nTotal += abs(normalizedCounter[s]);
-//                if (nTotal != (1U<<tableLog))
-//                RAWLOG(2, "Warning !!! Total == %u != %u !!!", nTotal, 1U<<tableLog);
-//                getchar();
-//            }
-//#endif
-//
-//            return tableLog;
-//        }
     }
 
     public int[] toInt(short[] elements)
@@ -869,7 +854,7 @@ class SequenceCompressor
         int lowThreshold = total >>> tableLog; // minimum count below which frequency in the normalized table is "too small" (~ < 1)
         int lowOne = (total * 3) >>> (tableLog + 1); // 1.5 * lowThreshold. If count in (lowThreshold, lowOne] => assign frequency 1
 
-        for (int i = 0; i < maxSymbol; i++) {
+        for (int i = 0; i <= maxSymbol; i++) {
             if (counts[i] == 0) {
                 normalizedCounts[i] = 0;
             }

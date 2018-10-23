@@ -256,6 +256,7 @@ class DoubleFastBlockCompressor
 
     private static long hash5(long value, int bits)
     {
+        DebugLog.print("hash5: value: %d, bits: %d", value, bits);
         return ((value << (Long.SIZE - 40)) * PRIME_5_BYTES) >>> (Long.SIZE - bits);
     }
 

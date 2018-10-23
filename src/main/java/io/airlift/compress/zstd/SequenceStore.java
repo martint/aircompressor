@@ -33,6 +33,13 @@ class SequenceStore
     public byte[] matchLengthCodes;
     public byte[] offsetCodes;
 
+    public LongField longLengthField;
+    public int longLengthPosition;
+
+    public enum LongField {
+        LITERAL, MATCH
+    }
+
     public SequenceStore(int blockSize, int maxSequences)
     {
         offsets = new int[maxSequences];
@@ -68,6 +75,10 @@ class SequenceStore
         UNSAFE.copyMemory(literalBase, literalAddress, literalsBuffer, ARRAY_BYTE_BASE_OFFSET + literalsOffset, literalLength);
         literalsOffset += literalLength;
 
+        if (literalLength > 0xFFFF) {
+            longLengthField = LongField.LITERAL;
+            longLengthPosition = sequenceCount;
+        }
         /* literal Length */
 // TODO
 //        if (litLength>0xFFFF) {
@@ -87,18 +98,25 @@ class SequenceStore
 //            seqStorePtr->longLengthID = 2;
 //            seqStorePtr->longLengthPos = (U32)(seqStorePtr->sequences - seqStorePtr->sequencesStart);
 //        }
+        if (matchLengthBase > 0xFFFF) {
+            longLengthField = LongField.MATCH;
+            longLengthPosition = sequenceCount;
+        }
+
         matchLengths[sequenceCount] = matchLengthBase;
 
         sequenceCount++;
+
+        DebugLog.print("Sequence count: %d", sequenceCount);
     }
 
     public void reset()
     {
         literalsOffset = 0;
         sequenceCount = 0;
-        // TODO: longLengthID
+        longLengthField = null;
 
-        start = 0; // TODO for debugging
+//        start = 0; // TODO for debugging
     }
 
     public void generateCodes()
@@ -109,11 +127,12 @@ class SequenceStore
             matchLengthCodes[i] = (byte) ZSTD_MLcode(matchLengths[i]);
         }
 
-        // TODO
-//        if (seqStorePtr->longLengthID==1)
-//            llCodeTable[seqStorePtr->longLengthPos] = MaxLL;
-//        if (seqStorePtr->longLengthID==2)
-//            mlCodeTable[seqStorePtr->longLengthPos] = MaxML;
+        if (longLengthField == LongField.LITERAL) {
+            literalLengthCodes[longLengthPosition] = Constants.MAX_LITERALS_LENGTH_SYMBOL;
+        }
+        if (longLengthField == LongField.MATCH) {
+            matchLengthCodes[longLengthPosition] = Constants.MAX_MATCH_LENGTH_SYMBOL;
+        }
     }
 
     private static final byte[] LL_Code = {0, 1, 2, 3, 4, 5, 6, 7,

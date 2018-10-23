@@ -239,4 +239,9 @@ class FiniteStateEntropy
             this.numberOfBits = numberOfBits;
         }
     }
+
+    public static void main(String[] args)
+    {
+//        FiniteStateEntropy.spreadSymbols(new short[47], 46, 128, 112, )
+    }
 }

@@ -19,7 +19,7 @@ import static io.airlift.compress.zstd.Util.verify;
 
 public class BitstreamEncoder
 {
-    private static final int[] BIT_MASK = {
+    private static final long[] BIT_MASK = {
             0, 1, 3, 7, 0xF, 0x1F,
             0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF,
             0xFFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF, 0x1FFFF,
@@ -49,16 +49,18 @@ public class BitstreamEncoder
         currentAddress = this.outputAddress;
     }
 
-    public void addBits(int value, int bitCount)
+    public void addBits(int value, int bits)
     {
-        container |= (value & BIT_MASK[bitCount]) << this.bitCount;
-        this.bitCount += bitCount;
+        container |= (value & BIT_MASK[bits]) << bitCount;
+        this.bitCount += bits;
+
+//        DebugLog.print("Add bits: %x (%d bits), container: %x, bits: %d", value & BIT_MASK[bits], bits, container, bitCount);
     }
 
     public void flush()
     {
         int bytes = bitCount >>> 3;
-        DebugLog.print("Writing at %d: %x, %d bytes", currentAddress, container, bytes);
+//        DebugLog.print("Flushing at %d: %x (%d bytes, container: %x, bitCount: %d)", currentAddress, container & ((1L << (bytes * 8)) - 1), bytes, container, bitCount);
 
         UNSAFE.putLong(outputBase, currentAddress, container);
         currentAddress += bytes;
@@ -69,6 +71,8 @@ public class BitstreamEncoder
 
         bitCount &= 7;
         container >>>= bytes * 8;
+
+//        DebugLog.print("After flush: container: %x, bitCount: %d", container, bitCount);
     }
 
     public int close()

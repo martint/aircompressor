@@ -269,7 +269,6 @@ class ZstdFrameCompressor
             context.blockState.next.rep[i] = context.blockState.previous.rep[i];
         }
 
-        
         int lastLiteralsSize = parameters.getStrategy()
                 .getCompressor()
                 .compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);

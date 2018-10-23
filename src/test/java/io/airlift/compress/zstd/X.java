@@ -14,7 +14,6 @@
 package io.airlift.compress.zstd;
 
 import io.airlift.compress.AbstractTestCompression;
-import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -27,7 +26,7 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "cp.html"));
+        byte[] original = Files.readAllBytes(Paths.get("testdata","silesia", "mozilla"));
         //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
         // new byte[100000];
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
@@ -37,8 +36,10 @@ public class X
         byte[] control = new byte[maxCompressLength];
         byte[] decompressed = new byte[original.length];
 
-        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
-        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+//        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
+
+//        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+        int compressedSize = compressor.compress(original, 1, original.length - 1, compressed, 0, compressed.length);
 
         System.err.println("decompressing");
 //        for (int i = 0; i < compressedSize; i++) {
