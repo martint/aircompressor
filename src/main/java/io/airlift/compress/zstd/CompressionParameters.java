@@ -266,7 +266,7 @@ class CompressionParameters
         }
 
         int cycleLog = cycleLog(chainLog, strategy);
-        DebugLog.print("cycleLog = %d, hashLog = %d, windowLog = %d", cycleLog, chainLog, windowLog);
+//        DebugLog.print("cycleLog = %d, hashLog = %d, windowLog = %d", cycleLog, chainLog, windowLog);
         if (cycleLog > windowLog) {
             chainLog -= (cycleLog - windowLog);
         }

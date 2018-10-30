@@ -281,18 +281,18 @@ public class HuffmanCompressor
             nodeTable.numberOfBits[n + offset] = (byte) (nodeTable.numberOfBits[nodeTable.parents[n + offset] + offset] + 1);
         }
 
-        DebugLog.print("Huffman node table");
-        for (int i = 0; i < nodeTable.count.length; i++) {
-            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
-        }
+//        DebugLog.print("Huffman node table");
+//        for (int i = 0; i < nodeTable.count.length; i++) {
+//            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
+//        }
 
         // enforce maxTableLog
         maxNbBits = setMaxHeight(nodeTable, offset, nonNullRank, maxNbBits);
 
-        DebugLog.print("Huffman node table -- after max height enforcement");
-        for (int i = 0; i < nodeTable.count.length; i++) {
-            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
-        }
+//        DebugLog.print("Huffman node table -- after max height enforcement");
+//        for (int i = 0; i < nodeTable.count.length; i++) {
+//            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
+//        }
 
         // fill result into tree (val, nbBits)
         short[] nbPerRank = new short[HUF_TABLELOG_MAX + 1];   // TODO allocate in context and reuse
@@ -316,10 +316,10 @@ public class HuffmanCompressor
             table.values[n] = valPerRank[table.numberOfBits[n]]++; // assign value within rank, symbol order
         }
 
-        DebugLog.print("Huffman compression table");
-        for (int i = 0; i < maxSymbolValue; i++) {
-            DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
-        }
+//        DebugLog.print("Huffman compression table");
+//        for (int i = 0; i < maxSymbolValue; i++) {
+//            DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
+//        }
         
         return maxNbBits;
     }
@@ -690,7 +690,7 @@ public class HuffmanCompressor
 
         // first segment
         compressedSize = compressSingleStream(outputBase, output, (int) (outputLimit - output), inputBase, input, segmentSize, table);
-        DebugLog.print("first segment: %d", compressedSize);
+//        DebugLog.print("first segment: %d", compressedSize);
         if (compressedSize == 0) {
             return 0;
         }
@@ -700,7 +700,7 @@ public class HuffmanCompressor
 
         // second segment
         compressedSize = compressSingleStream(outputBase, output, (int) (outputLimit - output), inputBase, input, segmentSize, table);
-        DebugLog.print("second segment: %d", compressedSize);
+//        DebugLog.print("second segment: %d", compressedSize);
         if (compressedSize == 0) {
             return 0;
         }
@@ -710,7 +710,7 @@ public class HuffmanCompressor
 
         // third segment
         compressedSize = compressSingleStream(outputBase, output, (int) (outputLimit - output), inputBase, input, segmentSize, table);
-        DebugLog.print("third segment: %d", compressedSize);
+//        DebugLog.print("third segment: %d", compressedSize);
         if (compressedSize == 0) {
             return 0;
         }
@@ -720,7 +720,7 @@ public class HuffmanCompressor
 
         // fourth segment
         compressedSize = compressSingleStream(outputBase, output, (int) (outputLimit - output), inputBase, input, (int) (inputLimit - input), table);
-        DebugLog.print("fourth segment: %d", compressedSize);
+//        DebugLog.print("fourth segment: %d", compressedSize);
         if (compressedSize == 0) {
             return 0;
         }
@@ -780,7 +780,7 @@ public class HuffmanCompressor
 
     private static void encodeSymbol(BitstreamEncoder bitstream, int symbol, HuffmanCompressionTable table)
     {
-        DebugLog.print("Encoded symbol: %3d => %6d (bits: %2d)", symbol, table.values[symbol], table.numberOfBits[symbol]);
+//        DebugLog.print("Encoded symbol: %3d => %6d (bits: %2d)", symbol, table.values[symbol], table.numberOfBits[symbol]);
         bitstream.addBitsFast(table.values[symbol], table.numberOfBits[symbol]);
     }
 

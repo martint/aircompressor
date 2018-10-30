@@ -156,7 +156,7 @@ class FiniteStateEntropy
         int mask = tableSize - 1;
         int step = calculateStep(tableSize);
 
-        DebugLog.print("maxSymbol: %d, mask: %d, step: %d, highThreshold:%d", maxSymbolValue, mask, step, highThreshold);
+//        DebugLog.print("maxSymbol: %d, mask: %d, step: %d, highThreshold:%d", maxSymbolValue, mask, step, highThreshold);
 
         int position = 0;
         for (byte symbol = 0; symbol <= maxSymbolValue; symbol++) {
@@ -249,15 +249,15 @@ class FiniteStateEntropy
             }
             else {
                 short probability = (short) ((counts[symbol] * step) >>> scale);
-                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
+//                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
                 if (probability < 8) {
                     long restToBeat = vstep * REST_TO_BEAT[probability];
-                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
+//                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
                     long delta = counts[symbol] * step - (((long) probability) << scale);
                     if (delta > restToBeat) {
                         probability++;
                     }
-                    DebugLog.print("probability = %d", probability);
+//                    DebugLog.print("probability = %d", probability);
                 }
                 if (probability > largestProbability) {
                     largestProbability = probability;
@@ -277,9 +277,9 @@ class FiniteStateEntropy
             normalizedCounts[largest] += (short) stillToDistribute;
         }
 
-        for (int i = 0; i <= maxSymbol; i++) {
-            DebugLog.print("%3d: %4d", i, normalizedCounts[i]);
-        }
+//        for (int i = 0; i <= maxSymbol; i++) {
+//            DebugLog.print("%3d: %4d", i, normalizedCounts[i]);
+//        }
 
         return tableLog;
     }

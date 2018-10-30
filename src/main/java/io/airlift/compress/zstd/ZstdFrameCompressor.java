@@ -194,12 +194,12 @@ class ZstdFrameCompressor
 
             int compressedSize = 0;
             if (remaining > 0) {
-                DebugLog.print("Compressing block (remaining = %d). Current output offset: %d", remaining, output);
+//                DebugLog.print("Compressing block (remaining = %d). Current output offset: %d", remaining, output);
                 compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
             }
 
             if (compressedSize == 0) {  /* block is not compressible */
-                DebugLog.print("Not compressible. Writing raw block at offset %d", output);
+//                DebugLog.print("Not compressible. Writing raw block at offset %d", output);
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
                 int blockHeader = lastBlockFlag | (RAW_BLOCK << 1) | (blockSize << 3);

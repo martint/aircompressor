@@ -32,7 +32,7 @@ class Histogram
 
     public static Histogram count(Object inputBase, long inputAddress, int inputSize, int maxSymbol)
     {
-        DebugLog.print("Computing histogram. Input size = %d", inputSize);
+//        DebugLog.print("Computing histogram. Input size = %d", inputSize);
 
         long input = inputAddress;
         long inputLimit = inputAddress + inputSize;
@@ -65,9 +65,9 @@ class Histogram
             }
         }
 
-        for (int i = 0; i <= maxSymbol; i++) {
-            DebugLog.print("symbol = %d, count = %d", i, counts[i]);
-        }
+//        for (int i = 0; i <= maxSymbol; i++) {
+//            DebugLog.print("symbol = %d, count = %d", i, counts[i]);
+//        }
 
         return new Histogram(maxSymbol, largestCount, counts);
     }

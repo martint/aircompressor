@@ -26,7 +26,7 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = Files.readAllBytes(Paths.get("testdata","canterbury", "cp.html"));
+        byte[] original = Files.readAllBytes(Paths.get("testdata","silesia", "dickens"));
         //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
         // new byte[100000];
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
@@ -39,7 +39,11 @@ public class X
 //        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
 
 //        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
-        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+        int compressedSize = 0;
+        for (int i = 0; i < 1000; i++) {
+            compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+        }
+
 
         System.err.println("decompressing");
 //        for (int i = 0; i < compressedSize; i++) {

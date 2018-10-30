@@ -67,7 +67,7 @@ public class BitstreamEncoder
     public void flush()
     {
         int bytes = bitCount >>> 3;
-        DebugLog.print("Flushing at %d: %x (%d bytes, container: %x, bitCount: %d)", currentAddress, container & ((1L << (bytes * 8)) - 1), bytes, container, bitCount);
+//        DebugLog.print("Flushing at %d: %x (%d bytes, container: %x, bitCount: %d)", currentAddress, container & ((1L << (bytes * 8)) - 1), bytes, container, bitCount);
 
         UNSAFE.putLong(outputBase, currentAddress, container);
         currentAddress += bytes;
@@ -79,7 +79,7 @@ public class BitstreamEncoder
         bitCount &= 7;
         container >>>= bytes * 8;
 
-        DebugLog.print("After flush: container: %x, bitCount: %d", container, bitCount);
+//        DebugLog.print("After flush: container: %x, bitCount: %d", container, bitCount);
     }
 
     public int close()

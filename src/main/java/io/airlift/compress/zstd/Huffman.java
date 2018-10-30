@@ -317,7 +317,7 @@ class Huffman
     private static int decodeSymbol(Object outputBase, long outputAddress, long bitContainer, int bitsConsumed, int tableLog, byte[] numbersOfBits, byte[] symbols)
     {
         int value = (int) peekBitsFast(bitsConsumed, bitContainer, tableLog);
-        DebugLog.print("Decoded symbol: %6d => %3d (bits: %2d)", value, symbols[value], numbersOfBits[value]);
+//        DebugLog.print("Decoded symbol: %6d => %3d (bits: %2d)", value, symbols[value], numbersOfBits[value]);
         UNSAFE.putByte(outputBase, outputAddress, symbols[value]);
         return bitsConsumed + numbersOfBits[value];
     }
