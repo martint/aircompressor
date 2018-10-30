@@ -204,8 +204,10 @@ class ZstdFrameCompressor
 
                 int blockHeader = lastBlockFlag | (RAW_BLOCK << 1) | (blockSize << 3);
 
+                // write 24 bits -- TODO: factor out
                 UNSAFE.putShort(outputBase, output, (short) blockHeader);
-                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
+                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> Short.SIZE));
+
                 UNSAFE.copyMemory(inputBase, input, outputBase, output + SIZE_OF_BLOCK_HEADER, blockSize);
 
                 compressedSize = SIZE_OF_BLOCK_HEADER + blockSize;
@@ -213,9 +215,9 @@ class ZstdFrameCompressor
             else {
                 int blockHeader = lastBlockFlag | (COMPRESSED_BLOCK << 1) | (compressedSize << 3);
 
-                // write 24 bits
+                // write 24 bits -- TODO: factor out
                 UNSAFE.putShort(outputBase, output, (short) blockHeader);
-                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> 16));
+                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> Short.SIZE));
 
                 compressedSize += SIZE_OF_BLOCK_HEADER;
             }

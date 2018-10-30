@@ -13,6 +13,7 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.CompressedBlockState.RepeatMode.REPEAT_CHECK;
 import static io.airlift.compress.zstd.CompressedBlockState.RepeatMode.REPEAT_NONE;
 import static io.airlift.compress.zstd.CompressedBlockState.RepeatMode.REPEAT_VALID;
 import static io.airlift.compress.zstd.Constants.DEFAULT_MAX_OFFSET_CODE_SYMBOL;
@@ -24,11 +25,9 @@ import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_BASIC;
 import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_COMPRESSED;
 import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_REPEAT;
 import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_RLE;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
-import static io.airlift.compress.zstd.FiniteStateEntropy.MIN_TABLE_LOG;
-import static io.airlift.compress.zstd.FiniteStateEntropy.minTableLog;
 import static io.airlift.compress.zstd.FiniteStateEntropy.optimalTableLog;
-import static io.airlift.compress.zstd.FseTableReader.FSE_MAX_SYMBOL_VALUE;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
@@ -80,9 +79,6 @@ class SequenceCompressor
     private static final int MATCH_LENGTH_DEFAULT_NORM_LOG = 6;
     private static final int OFFSET_DEFAULT_NORM_LOG = 5;
 
-    private static final int[] REST_TO_BEAT = new int[] {0, 473195, 504333, 520860, 550000, 700000, 750000, 830000};
-    private static final short UNASSIGNED = -2;
-
     public static int compress(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, final long outputAddress, int outputSize)
     {
         long outputLimit = outputAddress + outputSize;
@@ -96,15 +92,13 @@ class SequenceCompressor
         byte[] literals = sequences.literalsBuffer;
         int litSize = sequences.literalsOffset;
 
-        boolean disableLiteralCompression = (parameters.getStrategy() == CompressionParameters.Strategy.FAST) && (parameters.getTargetLength() > 0);
-
-        output += compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters.getStrategy(), disableLiteralCompression, outputBase, output, outputSize, literals, litSize);
+        output += compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters, outputBase, output, outputSize, literals, litSize);
 
         /* Sequences Header */
         verify(outputLimit - output > 3 /*max sequenceCount Size*/ + 1 /*seqHead*/, outputAddress, "Output buffer too small");
 
         DebugLog.print("Writing %d sequences at offset %d", sequenceCount, output);
-        
+
         if (sequenceCount < 0x7F) {
             UNSAFE.putByte(outputBase, output, (byte) sequenceCount);
             output++;
@@ -153,7 +147,7 @@ class SequenceCompressor
             FseCompressionTable next = nextEntropy.literalLengths.table;
             boolean isDefaultAllowed = true;
 
-            Histogram histogram = count(sequences.literalLengthCodes, sequenceCount, maxTheoreticalSymbol);
+            Histogram histogram = Histogram.count(sequences.literalLengthCodes, sequenceCount, maxTheoreticalSymbol);
             int maxSymbol = histogram.maxSymbol;
             int largestCount = histogram.largestCount;
             int[] counts = histogram.counts;
@@ -197,7 +191,7 @@ class SequenceCompressor
             int defaultMaxSymbol = DEFAULT_MAX_OFFSET_CODE_SYMBOL; // TODO: figure out the issue of default_max vs max offset code symbol
             int maxTheoreticalSymbol = MAX_OFFSET_CODE_SYMBOL;
 
-            Histogram histogram = count(sequences.offsetCodes, sequenceCount, maxTheoreticalSymbol);
+            Histogram histogram = Histogram.count(sequences.offsetCodes, sequenceCount, maxTheoreticalSymbol);
             int maxSymbol = histogram.maxSymbol;
             int largestCount = histogram.largestCount;
             int[] counts = histogram.counts;
@@ -244,7 +238,7 @@ class SequenceCompressor
             int maxTheoreticalSymbol = MAX_MATCH_LENGTH_SYMBOL;
             FseCompressionTable next = nextEntropy.matchLengths.table;
 
-            Histogram histogram = count(sequences.matchLengthCodes, sequenceCount, maxTheoreticalSymbol);   /* can't fail */
+            Histogram histogram = Histogram.count(sequences.matchLengthCodes, sequenceCount, maxTheoreticalSymbol);   /* can't fail */
             int maxSymbol = histogram.maxSymbol;
             int largestCount = histogram.largestCount;
             int[] counts = histogram.counts;
@@ -309,129 +303,6 @@ class SequenceCompressor
         return (int) (output - outputAddress);
     }
 
-    //    size_t FSE_writeNCount (void* buffer, size_t bufferSize, const short* normalizedCounter, unsigned maxSymbolValue, unsigned tableLog)
-    public static int writeNormalizedCounts(Object outputBase, long outputAddress, int outputSize, short[] normalizedCounts, int maxSymbol, int tableLog)
-    {
-        verify(tableLog <= FiniteStateEntropy.MAX_TABLE_LOG, "FSE table too large");
-        verify(tableLog >= FiniteStateEntropy.MIN_TABLE_LOG, "FSE table too small");
-
-        long output = outputAddress;
-        long outputLimit = outputAddress + outputSize;
-
-        int tableSize = 1 << tableLog;
-
-        int bitCount = 0;
-
-        // encode table size
-        int bitStream = (tableLog - MIN_TABLE_LOG);
-        bitCount += 4;
-
-        int remaining = tableSize + 1; // +1 for extra accuracy
-        int threshold = tableSize;
-        int nbBits = tableLog + 1;
-
-        int symbol = 0;
-
-        boolean previous0 = false;
-        while (remaining > 1) {
-            if (previous0) {
-                // From RFC 8478:
-                //   When a symbol has a probability of zero, it is followed by a 2-bit
-                //   repeat flag.  This repeat flag tells how many probabilities of zeroes
-                //   follow the current one.  It provides a number ranging from 0 to 3.
-                //   If it is a 3, another 2-bit repeat flag follows, and so on.
-                int start = symbol;
-
-                // find run of symbols with count 0
-                while (normalizedCounts[symbol] == 0) {
-                    symbol++;
-                }
-
-                // encode in batches if 8 repeat sequences in one shot (representing 24 symbols total)
-                while (symbol >= start + 24) {
-                    start += 24;
-                    bitStream |= (0b11_11_11_11_11_11_11_11 << bitCount);
-                    verify(output + SIZE_OF_SHORT <= outputLimit, "Output buffer too small");
-
-                    // TODO: putShort?
-                    UNSAFE.putByte(outputBase, output, (byte) bitStream);
-                    UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
-                    output += SIZE_OF_SHORT;
-
-                    // flush now, so no need to increase bitCount by 16
-                    bitStream >>>= Short.SIZE;
-                }
-
-                // encode remaining in batches of 3 symbols
-                while (symbol >= start + 3) {
-                    start += 3;
-                    bitStream += 0b11 << bitCount;
-                    bitCount += 2;
-                }
-
-                // encode tail
-                bitStream += (symbol - start) << bitCount;
-                bitCount += 2;
-
-                // flush bitstream if necessary
-                if (bitCount > 16) {
-                    verify(output + SIZE_OF_SHORT <= outputLimit, "Output buffer too small");
-
-                    // TODO: putShort?
-                    UNSAFE.putByte(outputBase, output, (byte) bitStream);
-                    UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
-                    output += SIZE_OF_SHORT;
-
-                    bitStream >>= Short.SIZE;
-                    bitCount -= Short.SIZE;
-                }
-            }
-
-            int count = normalizedCounts[symbol++];
-            int max = (2 * threshold - 1) - remaining;
-            remaining -= count < 0 ? -count : count;
-            count++;   /* +1 for extra accuracy */
-            if (count >= threshold) {
-                count += max;
-            }
-            bitStream += count << bitCount;
-            bitCount += nbBits;
-            bitCount -= (count < max ? 1 : 0);
-            previous0 = (count == 1);
-
-            verify(remaining >= 1, "Error"); // TODO
-
-            while (remaining < threshold) {
-                nbBits--;
-                threshold >>= 1;
-            }
-
-            // flush bitstream if necessary
-            if (bitCount > 16) {
-                verify(output + SIZE_OF_SHORT <= outputLimit, "Output buffer too small");
-
-                // TODO: putShort?
-                UNSAFE.putByte(outputBase, output, (byte) bitStream);
-                UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
-                output += SIZE_OF_SHORT;
-
-                bitStream >>= Short.SIZE;
-                bitCount -= Short.SIZE;
-            }
-        }
-
-        // flush remaining bitstream
-        verify(output + SIZE_OF_SHORT <= outputLimit, "Output buffer too small");
-        // TODO: putShort?
-        UNSAFE.putByte(outputBase, output, (byte) bitStream);
-        UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
-        output += (bitCount + 7) / 8;
-
-        verify(symbol <= maxSymbol + 1, "Error"); // TODO
-
-        return (int) (output - outputAddress);
-    }
-
     private static int encodeSequences(
             Object outputBase,
             long output,
@@ -451,7 +322,7 @@ class SequenceCompressor
 //            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengthCodes[i], sequences.matchLengthCodes[i], sequences.offsetCodes[i]);
 //            DebugLog.print("Sequence %d: ll = %d, ml = %d, off = %d", i, sequences.literalLengths[i], sequences.matchLengths[i] + MIN_MATCH, sequences.offsets[i]);
         }
-        
+
         BitstreamEncoder blockStream = new BitstreamEncoder(outputBase, output, (int) (outputLimit - output));
 
         int nbSeq = sequences.sequenceCount;
@@ -546,16 +417,142 @@ class SequenceCompressor
     private static int compressLiterals(
             CompressedBlockState.HuffmanTable previousHuffman,
             CompressedBlockState.HuffmanTable nextHuffman,
-            CompressionParameters.Strategy strategy,
-            boolean disableLiteralCompression,
+            CompressionParameters parameters,
             Object outputBase,
             long outputAddress,
             int outputSize,
             byte[] literals,
             int literalsSize)
     {
-        // TODO
-        return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
+        // Prepare nextEntropy assuming reusing the existing table
+        nextHuffman.copy(previousHuffman);
+
+        // TODO: move this to Strategy
+        boolean bypassCompression = (parameters.getStrategy() == CompressionParameters.Strategy.FAST) && (parameters.getTargetLength() > 0);
+        if (bypassCompression) {
+            return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
+        }
+
+        // small ? don't even attempt compression (speed opt)
+        int COMPRESS_LITERALS_SIZE_MIN = 63;
+        int minLitSize = (previousHuffman.repeatMode == REPEAT_VALID) ? 6 : COMPRESS_LITERALS_SIZE_MIN;
+        
+        if (literalsSize <= minLitSize) {
+            return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
+        }
+
+        int minGain = calculateMinimumGain(literalsSize, parameters.getStrategy());
+        int headerSize = 3 + (literalsSize > 1024 ? 1 : 0) + (literalsSize > 16384 ? 1 : 0);
+        boolean singleStream = literalsSize < 256;
+
+        verify(headerSize + 1 <= outputSize, "Output buffer too small");
+
+        CompressedBlockState.RepeatMode repeat = previousHuffman.repeatMode;
+
+        // TODO: move to Strategy
+        boolean preferRepeat = parameters.getStrategy().ordinal() < CompressionParameters.Strategy.LAZY.ordinal() && literalsSize <= 1024;
+        if (repeat == REPEAT_VALID && headerSize == 3) {
+            singleStream = true;
+        }
+
+        // TODO: clean up repeat. It's in CompressedBlockState and in HuffmanCompressionContext). It's used as an in/out arg for HuffmanCompressor.compress
+        // TODO: untangle the decision of whether to reuse previous table or not between this code and HuffmanCompressor.compress
+        HuffmanCompressionContext context = new HuffmanCompressionContext();
+        context.repeat = repeat;
+        int compressedSize = HuffmanCompressor.compress(
+                outputBase,
+                outputAddress + headerSize,
+                outputSize - headerSize,
+                literals,
+                ARRAY_BYTE_BASE_OFFSET,
+                literalsSize,
+                255,
+                11,
+                singleStream,
+                context,
+                nextHuffman.table,
+                preferRepeat);
+
+        repeat = context.repeat;
+
+        int encodingType = SEQUENCE_ENCODING_COMPRESSED;
+        if (repeat != REPEAT_NONE) {
+            encodingType = SEQUENCE_ENCODING_REPEAT;
+        }
+
+        if (compressedSize == 0 || compressedSize >= literalsSize - minGain) {
+            nextHuffman.copy(previousHuffman);
+            return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
+        }
+
+        if (compressedSize == 1) {
+            nextHuffman.copy(previousHuffman);
+            return rleLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
+        }
+
+        if (encodingType == SEQUENCE_ENCODING_COMPRESSED) {
+            // using a newly constructed table
+            nextHuffman.repeatMode = REPEAT_CHECK;
+        }
+
+        // Build header
+        switch (headerSize) {
+            case 3: { // 2 - 2 - 10 - 10
+                int header = encodingType | ((singleStream ? 0 : 1) << 2) | (literalsSize << 4) | (compressedSize << 14);
+
+                // write 24 bits -- TODO: factor out
+                UNSAFE.putShort(outputBase, outputAddress, (short) header);
+                UNSAFE.putByte(outputBase, outputAddress + SIZE_OF_SHORT, (byte) (header >>> Short.SIZE));
+
+                break;
+            }
+            case 4: { // 2 - 2 - 14 - 14
+                int header = encodingType | (2 << 2) | (literalsSize << 4) | (compressedSize << 18);
+                UNSAFE.putInt(outputBase, outputAddress, header);
+                break;
+            }
+            case 5: { // 2 - 2 - 18 - 18
+                int header = encodingType | (3 << 2) | (literalsSize << 4) | (compressedSize << 22);
+                UNSAFE.putInt(outputBase, outputAddress, header);
+                UNSAFE.putByte(outputBase, outputAddress + SIZE_OF_INT, (byte) (compressedSize >>> 10));
+                break;
+            }
+            default:  /* not possible : lhSize is {3,4,5} */
+                throw new IllegalStateException();
+        }
+
+        return headerSize + compressedSize;
+    }
+
+    private static int rleLiterals(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize)
+    {
+        int headerSize = 1 + (inputSize > 31 ? 1 : 0) + (inputSize > 4095 ? 1 : 0);
+
+        switch (headerSize) {
+            case 1: // 2 - 1 - 5
+                UNSAFE.putByte(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_RLE | (inputSize << 3)));
+                break;
+            case 2: // 2 - 2 - 12
+                UNSAFE.putShort(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_RLE | (1 << 2) | (inputSize << 4)));
+                break;
+            case 3: // 2 - 2 - 20
+                UNSAFE.putInt(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_RLE | (3 << 2) | (inputSize << 4)));
+                break;
+            default:   // impossible. headerSize is {1,2,3}
+                throw new IllegalStateException();
+        }
+
+        UNSAFE.putByte(outputBase, outputAddress + headerSize, UNSAFE.getByte(inputBase, inputAddress));
+
+        return headerSize + 1;
+    }
+
+
+    private static int calculateMinimumGain(int inputSize, CompressionParameters.Strategy strategy)
+    {
+        // TODO: move this to Strategy to avoid hardcoding a specific strategy here
+        int minLog = strategy == CompressionParameters.Strategy.BTULTRA ? 7 : 6;
+        return (inputSize >>> minLog) + 2;
     }
 
     private static int rawLiterals(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize)
@@ -608,54 +605,6 @@ class SequenceCompressor
         DebugLog.print("Writing raw literals at offset %d, size: %d", outputAddress, headerSize + inputSize);
 
         return headerSize + inputSize;
-    }
-
-    private static class Histogram
-    {
-        int maxSymbol;
-        int largestCount;
-        private final int[] counts;
-
-        public Histogram(int maxSymbol, int largestCount, int[] counts)
-        {
-            this.maxSymbol = maxSymbol;
-            this.largestCount = largestCount;
-            this.counts = counts;
-        }
-    }
-
-    private static Histogram count(byte[] input, int length, int maxSymbol)
-    {
-        DebugLog.print("Computing histogram. Input size = %d", length);
-        // TODO: HIST_count_parallel_wksp heuristic
-
-        // TODO: allocate once per compressor & fill with 0s:  int[] counts = new int[MAX_SEQUENCES + 1];
-        int[] counts = new int[maxSymbol + 1];
-
-        if (length == 0) {
-            return new Histogram(0, 0, counts);
-        }
-
-        for (int i = 0; i < length; i++) {
-            counts[input[i]]++;
-        }
-
-        while (counts[maxSymbol] == 0) {
-            maxSymbol--;
-        }
-
-        int largestCount = 0;
-        for (int i = 0; i < maxSymbol; i++) {
-            if (counts[i] > largestCount) {
-                largestCount = counts[i];
-            }
-        }
-
-        for (int i = 0; i < maxSymbol; i++) {
-            DebugLog.print("symbol = %d, count = %d", i, counts[i]);
-        }
-        
-        return new Histogram(maxSymbol, largestCount, counts);
     }
 
     static class EncodingType
@@ -745,7 +694,7 @@ class SequenceCompressor
                 // TODO: copy previous -> next
                 return 0;
             case SEQUENCE_ENCODING_BASIC:
-                buildCompressionTable(nextCompressionTable, defaultNorm, defaultMax, defaultNormLog);
+                FiniteStateEntropy.buildCompressionTable(nextCompressionTable, defaultNorm, defaultMax, defaultNormLog);
                 return 0;
             case SEQUENCE_ENCODING_COMPRESSED:
                 short[] norm = new short[MAX_SEQUENCES];
@@ -757,85 +706,16 @@ class SequenceCompressor
                     nbSeq_1--;
                 }
 
-                normalizeCounts(norm, tableLog, counts, nbSeq_1, maxSymbol);
+                FiniteStateEntropy.normalizeCounts(norm, tableLog, counts, nbSeq_1, maxSymbol);
 
-                int size = writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), norm, maxSymbol, tableLog); // TODO: pass outputLimit directly
-                buildCompressionTable(nextCompressionTable, norm, maxSymbol, tableLog);
+                int size = FiniteStateEntropy.writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), norm, maxSymbol, tableLog); // TODO: pass outputLimit directly
+                FiniteStateEntropy.buildCompressionTable(nextCompressionTable, norm, maxSymbol, tableLog);
 
                 DebugLog.print("Writing FSE table definition at offset %d, size = %d", output, size);
                 return size;
         }
 
         throw new UnsupportedOperationException("not yet implemented");
-    }
-
-    public static int normalizeCounts(short[] normalizedCounts, int tableLog, int[] counts, int total, int maxSymbol)
-    {
-        if (tableLog == 0) {
-            tableLog = FiniteStateEntropy.DEFAULT_TABLE_LOG;
-        }
-
-        verify(tableLog >= FiniteStateEntropy.MIN_TABLE_LOG, "Unsupported FSE table size");
-        verify(tableLog <= FiniteStateEntropy.MAX_TABLE_LOG, "FSE table size too large");
-        verify(tableLog >= minTableLog(total, maxSymbol), "FSE table size too small");
-
-        long scale = 62 - tableLog;
-        long step = (1L << 62) / total;
-        long vstep = 1L << (scale - 20);
-
-        int stillToDistribute = 1 << tableLog;
-
-        int largest = 0;
-        short largestProbability = 0;
-        int lowThreshold = total >>> tableLog;
-
-        for (int symbol = 0; symbol <= maxSymbol; symbol++) {
-            if (counts[symbol] == total) {
-                return 0; // rle special case
-            }
-            if (counts[symbol] == 0) {
-                normalizedCounts[symbol] = 0;
-                continue;
-            }
-            if (counts[symbol] <= lowThreshold) {
-                normalizedCounts[symbol] = -1;
-                stillToDistribute--;
-            }
-            else {
-                short probability = (short) ((counts[symbol] * step) >>> scale);
-                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
-                if (probability < 8) {
-                    long restToBeat = vstep * REST_TO_BEAT[probability];
-                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
-                    long delta = counts[symbol] * step - (((long) probability) << scale);
-                    if (delta > restToBeat) {
-                        probability++;
-                    }
-                    DebugLog.print("probability = %d", probability);
-                }
-                if (probability > largestProbability) {
-                    largestProbability = probability;
-                    largest = symbol;
-                }
-                normalizedCounts[symbol] = probability;
-                stillToDistribute -= probability;
-            }
-        }
-
-        if (-stillToDistribute >= (normalizedCounts[largest] >>> 1)) {
-            // corner case. Need another normalization method
-            // TODO size_t const errorCode = FSE_normalizeM2(normalizedCounter, tableLog, count, total, maxSymbolValue);
-            normalizeCounts2(normalizedCounts, tableLog, counts, total, maxSymbol);
-        }
-        else {
-            normalizedCounts[largest] += (short) stillToDistribute;
-        }
-
-        for (int i = 0; i <= maxSymbol; i++) {
-            DebugLog.print("%3d: %4d", i, normalizedCounts[i]);
-        }
-        
-        return tableLog;
     }
 
     public int[] toInt(short[] elements)
@@ -847,166 +727,10 @@ class SequenceCompressor
         return result;
     }
 
-    private static int normalizeCounts2(short[] normalizedCounts, int tableLog, int[] counts, int total, int maxSymbol)
-    {
-        int distributed = 0;
-
-        int lowThreshold = total >>> tableLog; // minimum count below which frequency in the normalized table is "too small" (~ < 1)
-        int lowOne = (total * 3) >>> (tableLog + 1); // 1.5 * lowThreshold. If count in (lowThreshold, lowOne] => assign frequency 1
-
-        for (int i = 0; i <= maxSymbol; i++) {
-            if (counts[i] == 0) {
-                normalizedCounts[i] = 0;
-            }
-            else if (counts[i] <= lowThreshold) {
-                normalizedCounts[i] = -1;
-                distributed++;
-                total -= counts[i];
-            }
-            else if (counts[i] <= lowOne) {
-                normalizedCounts[i] = 1;
-                distributed++;
-                total -= counts[i];
-            }
-            else {
-                normalizedCounts[i] = UNASSIGNED;
-            }
-        }
-
-        int normalizationFactor = 1 << tableLog;
-        int toDistribute = normalizationFactor - distributed;
-
-        if ((total / toDistribute) > lowOne) {
-            /* risk of rounding to zero */
-            lowOne = ((total * 3) / (toDistribute * 2));
-            for (int i = 0; i <= maxSymbol; i++) {
-                if ((normalizedCounts[i] == UNASSIGNED) && (counts[i] <= lowOne)) {
-                    normalizedCounts[i] = 1;
-                    distributed++;
-                    total -= counts[i];
-                }
-            }
-            toDistribute = normalizationFactor - distributed;
-        }
-
-        if (distributed == maxSymbol + 1) {
-            // all values are pretty poor;
-            // probably incompressible data (should have already been detected);
-            // find max, then give all remaining points to max
-            int maxValue = 0;
-            int maxCount = 0;
-            for (int i = 0; i <= maxSymbol; i++) {
-                if (counts[i] > maxCount) {
-                    maxValue = i;
-                    maxCount = counts[i];
-                }
-            }
-            normalizedCounts[maxValue] += (short) toDistribute;
-            return 0;
-        }
-
-        if (total == 0) {
-            // all of the symbols were low enough for the lowOne or lowThreshold
-            for (int i = 0; toDistribute > 0; i = (i + 1) % (maxSymbol + 1)) {
-                if (normalizedCounts[i] > 0) {
-                    toDistribute--;
-                    normalizedCounts[i]++;
-                }
-            }
-            return 0;
-        }
-
-        // TODO: simplify/document this code
-        long vStepLog = 62 - tableLog;
-        long mid = (1L << (vStepLog - 1)) - 1;
-        long rStep = (((1L << vStepLog) * toDistribute) + mid) / total;   /* scale on remaining */
-        long tmpTotal = mid;
-        for (int i = 0; i <= maxSymbol; i++) {
-            if (normalizedCounts[i] == UNASSIGNED) {
-                long end = tmpTotal + (counts[i] * rStep);
-                int sStart = (int) (tmpTotal >>> vStepLog);
-                int sEnd = (int) (end >>> vStepLog);
-                int weight = sEnd - sStart;
-
-                verify(weight >= 1, "Error"); // TODO
-                normalizedCounts[i] = (short) weight;
-                tmpTotal = end;
-            }
-        }
-
-        return 0;
-    }
-
     //    size_t FSE_buildCTable_wksp(FSE_CTable* ct, const short* normalizedCounter, unsigned maxSymbolValue, unsigned tableLog, void* workSpace, size_t wkspSize)
 //    public static FseCompressionTable buildFseTable(short[] normalizedCounts, int maxSymbolValue, int tableLog)
 
-    private static void buildCompressionTable(FseCompressionTable table, short[] normalizedCounts, int maxSymbolValue, int tableLog)
-    {
-//        assert(tableLog < 16);   /* required for the threshold strategy to work */
-        int tableSize = 1 << tableLog;
-
-//        verify(1 << tableLog <= tableSymbol.length, 0, "Table log too large");
-        byte[] tableSymbol = new byte[tableSize]; // TODO: allocate per compressor (see wkspSize)
-        int highThreshold = tableSize - 1;
-
-        // TODO: make sure FseCompressionTable has enough size
-        table.log2Size = tableLog;
-        table.maxSymbol = maxSymbolValue;
-
-        /* For explanations on how to distribute symbol values over the table :
-         *  http://fastcompression.blogspot.fr/2014/02/fse-distributing-symbol-values.html */
-
-        // symbol start positions
-        int[] cumulative = new int[FSE_MAX_SYMBOL_VALUE + 2];
-        cumulative[0] = 0;
-        for (int i = 1; i <= maxSymbolValue + 1; i++) {
-            if (normalizedCounts[i - 1] == -1) {  /* Low probability symbol */
-                cumulative[i] = cumulative[i - 1] + 1;
-                tableSymbol[highThreshold--] = (byte) (i - 1);
-            }
-            else {
-                cumulative[i] = cumulative[i - 1] + normalizedCounts[i - 1];
-            }
-        }
-        cumulative[maxSymbolValue + 1] = tableSize + 1;
-
-        // Spread symbols
-        int position = FiniteStateEntropy.spreadSymbols(normalizedCounts, maxSymbolValue, tableSize, highThreshold, tableSymbol);
-
-        verify(position == 0, "Spread symbols failed");
-
-        // Build table
-        for (int i = 0; i < tableSize; i++) {
-            byte symbol = tableSymbol[i];
-            table.nextState[cumulative[symbol]++] = (short) (tableSize + i);  /* TableU16 : sorted by symbol order; gives next state value */
-        }
-
-        // Build Symbol Transformation Table
-        int total = 0;
-        for (int symbol = 0; symbol <= maxSymbolValue; symbol++) {
-            switch (normalizedCounts[symbol]) {
-                case 0:
-                    /* filling nonetheless, for compatibility with FSE_getMaxNbBits() */
-                    table.deltaNumberOfBits[symbol] = ((tableLog + 1) << 16) - tableSize;
-                    break;
-                case -1:
-                case 1:
-                    table.deltaNumberOfBits[symbol] = (tableLog << 16) - tableSize;
-                    table.deltaFindState[symbol] = total - 1;
-                    total++;
-                    break;
-                default:
-                    int maxBitsOut = tableLog - Util.highestBit(normalizedCounts[symbol] - 1);
-                    int minStatePlus = normalizedCounts[symbol] << maxBitsOut;
-                    table.deltaNumberOfBits[symbol] = (maxBitsOut << 16) - minStatePlus;
-                    table.deltaFindState[symbol] = total - normalizedCounts[symbol];
-                    total += normalizedCounts[symbol];
-                    break;
-            }
-        }
-    }
-
-//    public static void main1(String[] args)
+    //    public static void main1(String[] args)
 //    {
 //        FseCompressionTable table = new FseCompressionTable(LITERALS_LENGTH_DEFAULT_NORM_LOG, MAX_LITERALS_LENGTH_SYMBOL);
 //        buildCompressionTable(table, LITERALS_LENGTH_DEFAULT_NORMS, MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_DEFAULT_NORM_LOG);

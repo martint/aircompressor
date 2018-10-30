@@ -20,7 +20,7 @@ import static io.airlift.compress.zstd.Util.verify;
 public class BitstreamEncoder
 {
     private static final long[] BIT_MASK = {
-            0, 1, 3, 7, 0xF, 0x1F,
+            0x0, 0x1, 0x3, 0x7, 0xF, 0x1F,
             0x3F, 0x7F, 0xFF, 0x1FF, 0x3FF, 0x7FF,
             0xFFF, 0x1FFF, 0x3FFF, 0x7FFF, 0xFFFF, 0x1FFFF,
             0x3FFFF, 0x7FFFF, 0xFFFFF, 0x1FFFFF, 0x3FFFFF, 0x7FFFFF,
@@ -52,15 +52,22 @@ public class BitstreamEncoder
     public void addBits(int value, int bits)
     {
         container |= (value & BIT_MASK[bits]) << bitCount;
-        this.bitCount += bits;
+        bitCount += bits;
 
 //        DebugLog.print("Add bits: %x (%d bits), container: %x, bits: %d", value & BIT_MASK[bits], bits, container, bitCount);
+    }
+
+    public void addBitsFast(int value, int bits)
+    {
+//        DebugLog.print("Add bits fast: %x (%d bits), container: %x, bits: %d", value & BIT_MASK[bits], bits, container, bitCount);
+        container |= ((long) value) << bitCount;
+        bitCount += bits;
     }
 
     public void flush()
     {
         int bytes = bitCount >>> 3;
-//        DebugLog.print("Flushing at %d: %x (%d bytes, container: %x, bitCount: %d)", currentAddress, container & ((1L << (bytes * 8)) - 1), bytes, container, bitCount);
+        DebugLog.print("Flushing at %d: %x (%d bytes, container: %x, bitCount: %d)", currentAddress, container & ((1L << (bytes * 8)) - 1), bytes, container, bitCount);
 
         UNSAFE.putLong(outputBase, currentAddress, container);
         currentAddress += bytes;
@@ -72,12 +79,12 @@ public class BitstreamEncoder
         bitCount &= 7;
         container >>>= bytes * 8;
 
-//        DebugLog.print("After flush: container: %x, bitCount: %d", container, bitCount);
+        DebugLog.print("After flush: container: %x, bitCount: %d", container, bitCount);
     }
 
     public int close()
     {
-        addBits(1, 1); // TODO addBitsFast  /* endMark */
+        addBitsFast(1, 1); // TODO addBitsFast  /* endMark */
         flush();
 
         if (currentAddress >= outputLimit) {

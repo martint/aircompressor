@@ -17,12 +17,12 @@ import java.util.Arrays;
 
 import static io.airlift.compress.zstd.BitStream.isEndOfStream;
 import static io.airlift.compress.zstd.BitStream.peekBitsFast;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.FseTableReader.FSE_MAX_SYMBOL_VALUE;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.isPowerOf2;
 import static io.airlift.compress.zstd.Util.verify;
-import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
-import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 
 class Huffman
 {
@@ -126,6 +126,7 @@ class Huffman
         return inputSize + 1;
     }
 
+    // TODO: return decompressed size?
     public void decodeSingleStream(final Object inputBase, final long inputAddress, final long inputLimit, final Object outputBase, final long outputAddress, final long outputLimit)
     {
         BitStream.Initializer initializer = new BitStream.Initializer(inputBase, inputAddress, inputLimit);
@@ -316,6 +317,7 @@ class Huffman
     private static int decodeSymbol(Object outputBase, long outputAddress, long bitContainer, int bitsConsumed, int tableLog, byte[] numbersOfBits, byte[] symbols)
     {
         int value = (int) peekBitsFast(bitsConsumed, bitContainer, tableLog);
+        DebugLog.print("Decoded symbol: %6d => %3d (bits: %2d)", value, symbols[value], numbersOfBits[value]);
         UNSAFE.putByte(outputBase, outputAddress, symbols[value]);
         return bitsConsumed + numbersOfBits[value];
     }

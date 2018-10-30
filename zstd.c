@@ -1,5 +1,46 @@
 GIT commit: 90ae50224d15e8dbcb9fa26b9be096366733db8e
 
+#define HUF_TABLELOG_DEFAULT  11
+#define HUF_TABLELOG_MAX      12
+#define HUF_BLOCKSIZE_MAX (128 * 1024)
+#define HUF_SYMBOLVALUE_MAX  255
+#define HUF_CTABLE_WORKSPACE_SIZE_U32 (2*HUF_SYMBOLVALUE_MAX +1 +1)
+
+#define HUF_FLUSHBITS(s)  BIT_flushBits(s)
+
+#define HUF_FLUSHBITS_1(stream) \
+    if (sizeof((stream)->bitContainer)*8 < HUF_TABLELOG_MAX*2+7) HUF_FLUSHBITS(stream)
+
+#define HUF_FLUSHBITS_2(stream) \
+    if (sizeof((stream)->bitContainer)*8 < HUF_TABLELOG_MAX*4+7) HUF_FLUSHBITS(stream)
+    
+typedef struct {
+    U32 base;
+    U32 current;
+} rankPos;
+
+struct HUF_CElt_s {
+  U16  val;
+  BYTE nbBits;
+};   /* typedef'd to HUF_CElt within "huf.h" */
+
+typedef struct {
+    U32 count[HUF_SYMBOLVALUE_MAX + 1];
+    HUF_CElt CTable[HUF_SYMBOLVALUE_MAX + 1];
+    huffNodeTable nodeTable;
+} HUF_compress_tables_t;
+
+typedef struct HUF_CElt_s HUF_CElt;
+
+typedef nodeElt huffNodeTable[HUF_CTABLE_WORKSPACE_SIZE_U32];
+
+typedef struct nodeElt_s {
+    U32 count;
+    U16 parent;
+    BYTE byte;
+    BYTE nbBits;
+} nodeElt;
+
 #define ZSTD_CURRENT_MAX ((3U << 29) + (1U << ZSTD_WINDOWLOG_MAX))
 
 static const U32 LL_bits[MaxLL+1] = { 0, 0, 0, 0, 0, 0, 0, 0,
@@ -4488,7 +4529,6 @@ unsigned HUF_optimalTableLog(unsigned maxTableLog, size_t srcSize, unsigned maxS
  *  `workSpace` must be aligned on 4-bytes boundaries, and be at least as large as a table of HUF_CTABLE_WORKSPACE_SIZE_U32 unsigned.
  */
 #define STARTNODE (HUF_SYMBOLVALUE_MAX+1)
-typedef nodeElt huffNodeTable[HUF_CTABLE_WORKSPACE_SIZE_U32];
 size_t HUF_buildCTable_wksp (HUF_CElt* tree, const U32* count, U32 maxSymbolValue, U32 maxNbBits, void* workSpace, size_t wkspSize)
 {
     nodeElt* const huffNode0 = (nodeElt*)workSpace;
