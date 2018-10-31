@@ -78,25 +78,10 @@ class SequenceStore
             longLengthField = LongField.LITERAL;
             longLengthPosition = sequenceCount;
         }
-        /* literal Length */
-// TODO
-//        if (litLength>0xFFFF) {
-//            assert(seqStorePtr->longLengthID == 0); /* there can only be a single long length */
-//            seqStorePtr->longLengthID = 1;
-//            seqStorePtr->longLengthPos = (U32)(seqStorePtr->sequences - seqStorePtr->sequencesStart);
-//        }
         literalLengths[sequenceCount] = literalLength;
 
-        /* match offset */
         offsets[sequenceCount] = offsetCode + 1;
 
-// TODO
-//        /* match Length */
-//        if (mlBase>0xFFFF) {
-//            assert(seqStorePtr->longLengthID == 0); /* there can only be a single long length */
-//            seqStorePtr->longLengthID = 2;
-//            seqStorePtr->longLengthPos = (U32)(seqStorePtr->sequences - seqStorePtr->sequencesStart);
-//        }
         if (matchLengthBase > 0xFFFF) {
             longLengthField = LongField.MATCH;
             longLengthPosition = sequenceCount;
@@ -134,15 +119,16 @@ class SequenceStore
         }
     }
 
-    private static final byte[] LL_Code = {0, 1, 2, 3, 4, 5, 6, 7,
-                                           8, 9, 10, 11, 12, 13, 14, 15,
-                                           16, 16, 17, 17, 18, 18, 19, 19,
-                                           20, 20, 20, 20, 21, 21, 21, 21,
-                                           22, 22, 22, 22, 22, 22, 22, 22,
-                                           23, 23, 23, 23, 23, 23, 23, 23,
-                                           24, 24, 24, 24, 24, 24, 24, 24,
-                                           24, 24, 24, 24, 24, 24, 24, 24};
+    private static final byte[] LITERAL_LENGTH_CODE = {0, 1, 2, 3, 4, 5, 6, 7,
+                                                       8, 9, 10, 11, 12, 13, 14, 15,
+                                                       16, 16, 17, 17, 18, 18, 19, 19,
+                                                       20, 20, 20, 20, 21, 21, 21, 21,
+                                                       22, 22, 22, 22, 22, 22, 22, 22,
+                                                       23, 23, 23, 23, 23, 23, 23, 23,
+                                                       24, 24, 24, 24, 24, 24, 24, 24,
+                                                       24, 24, 24, 24, 24, 24, 24, 24};
 
+    // TODO: rename
     private static int ZSTD_LLcode(int literalLength)
     {
         int LL_deltaCode = 19;
@@ -150,22 +136,23 @@ class SequenceStore
             return Util.highestBit(literalLength) + LL_deltaCode;
         }
         else {
-            return LL_Code[literalLength];
+            return LITERAL_LENGTH_CODE[literalLength];
         }
     }
 
-    private static final byte[] ML_Code = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                                           16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-                                           32, 32, 33, 33, 34, 34, 35, 35, 36, 36, 36, 36, 37, 37, 37, 37,
-                                           38, 38, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 39, 39, 39,
-                                           40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,
-                                           41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41,
-                                           42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
-                                           42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42};
+    private static final byte[] MATCH_LENGTH_CODE = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                                     16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+                                                     32, 32, 33, 33, 34, 34, 35, 35, 36, 36, 36, 36, 37, 37, 37, 37,
+                                                     38, 38, 38, 38, 38, 38, 38, 38, 39, 39, 39, 39, 39, 39, 39, 39,
+                                                     40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40, 40,
+                                                     41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41,
+                                                     42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42,
+                                                     42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42};
 
     /*
      * note : mlBase = matchLength - MINMATCH;
      *        because it's the format it's stored in seqStore->sequences */
+    // TODO: rename
     private static int ZSTD_MLcode(int mlBase)
     {
         int ML_deltaCode = 36;
@@ -173,7 +160,7 @@ class SequenceStore
             return Util.highestBit(mlBase) + ML_deltaCode;
         }
         else {
-            return ML_Code[mlBase];
+            return MATCH_LENGTH_CODE[mlBase];
         }
     }
 }

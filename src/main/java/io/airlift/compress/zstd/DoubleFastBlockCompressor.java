@@ -54,7 +54,7 @@ class DoubleFastBlockCompressor
 
         int offsetSaved = 0;
 
-        DebugLog.print("prefixLowestIndex: %d, hBitsL: %d, hBitsS: %d, srcSize: %d, offset_1: %d, offset_2: %d, mls: %d", prefixLowestIndex, longHashBits, shortHashBits, inputSize, offset1, offset2, matchSearchLength);
+//        DebugLog.print("prefixLowestIndex: %d, hBitsL: %d, hBitsS: %d, srcSize: %d, offset_1: %d, offset_2: %d, mls: %d", prefixLowestIndex, longHashBits, shortHashBits, inputSize, offset1, offset2, matchSearchLength);
 
         int dictAndPrefixLength = (int) (input - prefixLowest);
 
@@ -72,7 +72,6 @@ class DoubleFastBlockCompressor
             offset1 = 0;
         }
 
-        /* Main Search Loop */
         while (input < inputLimit) {   /* < instead of <=, because repcode check at (input+1) */
             int shortHash = hash(inputBase, input, shortHashBits, matchSearchLength);
             int shortMatchOffset = shortHashTable[shortHash];
@@ -100,7 +99,7 @@ class DoubleFastBlockCompressor
                 /* check prefix long match */
                 long longMatchAdress = baseAddress + longMatchOffset;
 
-                // TODO replace longMatchOffset > prefixLowestIndex with longMatchAddres > prefixLowest?
+                // TODO replace longMatchOffset > prefixLowestIndex with longMatchAddress > prefixLowest?
                 if (longMatchOffset > prefixLowestIndex && UNSAFE.getLong(inputBase, longMatchAdress) == UNSAFE.getLong(inputBase, input)) {
                     matchLength = count(inputBase, input + SIZE_OF_LONG, longMatchAdress + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
                     offset = (int) (input - longMatchAdress);

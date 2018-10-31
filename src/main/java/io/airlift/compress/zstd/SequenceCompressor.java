@@ -337,6 +337,7 @@ class SequenceCompressor
         blockStream.addBits(sequences.literalLengths[nbSeq - 1], LL_bits[llCodeTable[nbSeq - 1]]);
         blockStream.addBits(sequences.matchLengths[nbSeq - 1], ML_bits[mlCodeTable[nbSeq - 1]]);
         if (longOffsets) {
+            // TODO
             throw new UnsupportedOperationException("not yet implemented");
 //            U32 const ofBits = ofCodeTable[nbSeq-1];
 //            int const extraBits = ofBits - MIN(ofBits, STREAM_ACCUMULATOR_MIN-1);
@@ -384,6 +385,7 @@ class SequenceCompressor
                 }
 
                 if (longOffsets) {
+                    // TODO
                     throw new UnsupportedOperationException("not yet implemented");
                     //              int const extraBits = ofBits - MIN(ofBits, STREAM_ACCUMULATOR_MIN-1);
                     //              if (extraBits) {
