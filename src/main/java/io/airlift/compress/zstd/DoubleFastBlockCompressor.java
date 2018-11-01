@@ -97,22 +97,20 @@ class DoubleFastBlockCompressor
             }
             else {
                 /* check prefix long match */
-                long longMatchAdress = baseAddress + longMatchOffset;
+                long longMatchAddress = baseAddress + longMatchOffset;
 
-                // TODO replace longMatchOffset > prefixLowestIndex with longMatchAddress > prefixLowest?
-                if (longMatchOffset > prefixLowestIndex && UNSAFE.getLong(inputBase, longMatchAdress) == UNSAFE.getLong(inputBase, input)) {
-                    matchLength = count(inputBase, input + SIZE_OF_LONG, longMatchAdress + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
-                    offset = (int) (input - longMatchAdress);
-                    while (input > anchor && longMatchAdress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, longMatchAdress - 1)) {
+                if (longMatchOffset > prefixLowestIndex && UNSAFE.getLong(inputBase, longMatchAddress) == UNSAFE.getLong(inputBase, input)) {
+                    matchLength = count(inputBase, input + SIZE_OF_LONG, longMatchAddress + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
+                    offset = (int) (input - longMatchAddress);
+                    while (input > anchor && longMatchAddress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, longMatchAddress - 1)) {
                         input--;
-                        longMatchAdress--;
+                        longMatchAddress--;
                         matchLength++;
                     }
                 }
                 else {
                     /* check prefix short match */
                     long shortMatchAddress = baseAddress + shortMatchOffset;
-                    // TODO replace shortMatchOffset > prefixLowestIndex  with shortMatchAddres > prefixLowest?
                     if (shortMatchOffset > prefixLowestIndex && UNSAFE.getInt(inputBase, shortMatchAddress) == UNSAFE.getInt(inputBase, input)) {
                         int hash2 = (int) hash8(UNSAFE.getLong(inputBase, input + 1), longHashBits);
                         int matchOffset2 = longHashTable[hash2];

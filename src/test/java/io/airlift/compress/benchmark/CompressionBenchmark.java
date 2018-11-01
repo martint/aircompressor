@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Measurement(iterations = 10)
 @Warmup(iterations = 5)
-@Fork(1)
+@Fork(3)
 public class CompressionBenchmark
 {
     private Compressor compressor;
@@ -74,7 +74,7 @@ public class CompressionBenchmark
 //            "hadoop_lz4_stream",
 //            "hadoop_lzo_stream",
 //            "hadoop_snappy_stream",
-            "java_zip_stream",
+//            "java_zip_stream",
 //            "hadoop_gzip_stream",
     })
     private Algorithm algorithm;

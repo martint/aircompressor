@@ -13,8 +13,11 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
+
+//import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class SequenceStore
 {
@@ -72,11 +75,44 @@ class SequenceStore
         long index = literalAddress - start;
 //        DebugLog.print("Cpos%7d :%3d literals, match%4d bytes at offCode%7d", index, literalLength, matchLengthBase + MIN_MATCH, offsetCode);
 
-        // TODO: ZSTD_wildcopy
-        UNSAFE.copyMemory(literalBase, literalAddress, literalsBuffer, ARRAY_BYTE_BASE_OFFSET + literalsOffset, literalLength);
+        // method 1
+        long input = literalAddress;
+        long output = literalsOffset + ARRAY_BYTE_BASE_OFFSET;
+        for (int i = 0; i < literalLength; i += SIZE_OF_LONG) {
+            UNSAFE.putLong(literalsBuffer, output, UNSAFE.getLong(literalBase, input));
+            input += SIZE_OF_LONG;
+            output += SIZE_OF_LONG;
+        }
+
+        // method 2
+//        final long outputLimit = ARRAY_BYTE_BASE_OFFSET + literalsOffset + literalLength;
+//        long input = literalAddress;
+//        long output = ARRAY_BYTE_BASE_OFFSET + literalsOffset;
+//        do {
+//            UNSAFE.putLong(literalsBuffer, output, UNSAFE.getLong(literalBase, input));
+//            input += SIZE_OF_LONG;
+//            output += SIZE_OF_LONG;
+//        }
+//        while (output < outputLimit);
+
+        // method 3
+//        UNSAFE.copyMemory(literalBase, literalAddress, literalsBuffer, ARRAY_BYTE_BASE_OFFSET + literalsOffset, literalLength);
+
+        // method 4
+//        long input = literalAddress;
+//        long output = ARRAY_BYTE_BASE_OFFSET + literalsOffset;
+//        int copied = 0;
+//        do {
+//            UNSAFE.putLong(literalsBuffer, output, UNSAFE.getLong(literalBase, input));
+//            input += SIZE_OF_LONG;
+//            output += SIZE_OF_LONG;
+//            copied += SIZE_OF_LONG;
+//        }
+//        while (copied < literalLength);
+
         literalsOffset += literalLength;
 
-        if (literalLength > 0xFFFF) {
+        if (literalLength > 65535) {
             longLengthField = LongField.LITERAL;
             longLengthPosition = sequenceCount;
         }
@@ -84,7 +120,7 @@ class SequenceStore
 
         offsets[sequenceCount] = offsetCode + 1;
 
-        if (matchLengthBase > 0xFFFF) {
+        if (matchLengthBase > 65535) {
             longLengthField = LongField.MATCH;
             longLengthPosition = sequenceCount;
         }
@@ -156,7 +192,7 @@ class SequenceStore
     // TODO: rename
     private static int ZSTD_MLcode(int mlBase)
     {
-        if (mlBase > 127) {
+        if (mlBase >= 128) {
             return Util.highestBit(mlBase) + 36;
         }
         else {

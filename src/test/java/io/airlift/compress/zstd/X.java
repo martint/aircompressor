@@ -13,7 +13,6 @@
  */
 package io.airlift.compress.zstd;
 
-import io.airlift.compress.AbstractTestCompression;
 import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
 import java.nio.file.Files;
@@ -28,7 +27,8 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        Path path = Paths.get("/usr/local/fb-flake8/flake8-2/future/types/newmemoryview.pyc");
+        Path path = Paths.get("testdata", "silesia", "mr");
+//        Path path = Paths.get("/usr/local/fb-flake8/flake8-2/future/types/newmemoryview.pyc");
         byte[] original = Files.readAllBytes(path);
 
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
@@ -60,7 +60,15 @@ public class X
 
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 //        int decompressedSize = new ZstdJniDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
-        AbstractTestCompression.assertByteArraysEqual(original, 0, original.length, decompressed, 0, decompressedSize);
+//        AbstractTestCompression.assertByteArraysEqual(original, 0, original.length, decompressed, 0, decompressedSize);
+
+        int diffs = 0;
+        for (int i = 0; i < Math.min(compressedSize, controlSize) && diffs < 10; i++) {
+            if (compressed[i] != control[i]) {
+                System.out.printf("Difference at offset %d, ours = 0x%x, theirs=0x%x\n", i, compressed[i], control[i]);
+                diffs++;
+            }
+        }
     }
 
 }

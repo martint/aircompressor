@@ -235,12 +235,14 @@ class ZstdFrameCompressor
     private static void enforceMaxDistance(Window window, long sourceEnd, int maxDistance)
     {
         int currentDistance = (int) (sourceEnd - window.baseAddress);
+        DebugLog.print("enforce max window distance: current=%d, maxDist=%d", currentDistance, maxDistance);
 
         int newLowLimit = currentDistance - maxDistance;
         if (window.lowLimit < newLowLimit) {
             window.lowLimit = newLowLimit;
         }
         if (window.dictLimit < window.lowLimit) {
+            DebugLog.print("Update dictLimit to match lowLimit, from %d to %d", window.dictLimit, window.lowLimit);
             window.dictLimit = window.lowLimit;
         }
     }

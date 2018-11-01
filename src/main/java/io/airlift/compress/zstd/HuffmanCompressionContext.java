@@ -17,6 +17,7 @@ import java.util.Arrays;
 
 public class HuffmanCompressionContext
 {
+    // TODO: rename
     public static final int HUF_SYMBOLVALUE_MAX = 255;
     public static final int MAX_SYMBOL_COUNT = HUF_SYMBOLVALUE_MAX + 1;
     public static final int HUF_CTABLE_WORKSPACE_SIZE_U32 = (2 * MAX_SYMBOL_COUNT - 1) + 1; // number of nodes in binary tree with MAX_SYMBOL_COUNT leaves + 1 for sentinel
@@ -29,7 +30,7 @@ public class HuffmanCompressionContext
     public static class NodeTable
     {
         int[] count;
-        short[] parents; // U16 TODO: int?
+        short[] parents;
         byte[] bytes;
         byte[] numberOfBits;
 

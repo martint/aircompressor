@@ -281,18 +281,18 @@ public class HuffmanCompressor
             nodeTable.numberOfBits[n + offset] = (byte) (nodeTable.numberOfBits[nodeTable.parents[n + offset] + offset] + 1);
         }
 
-//        DebugLog.print("Huffman node table");
-//        for (int i = 0; i < nodeTable.count.length; i++) {
-//            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
-//        }
+        DebugLog.print("Huffman node table");
+        for (int i = 0; i < nodeTable.count.length; i++) {
+            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
+        }
 
         // enforce maxTableLog
         maxNbBits = setMaxHeight(nodeTable, offset, nonNullRank, maxNbBits);
 
-//        DebugLog.print("Huffman node table -- after max height enforcement");
-//        for (int i = 0; i < nodeTable.count.length; i++) {
-//            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
-//        }
+        DebugLog.print("Huffman node table -- after max height enforcement");
+        for (int i = 0; i < nodeTable.count.length; i++) {
+            DebugLog.print("%3d: count: %5d, symbol: %3d, bits: %2d, parent: %3d", i, nodeTable.count[i], nodeTable.bytes[i] & 0xFF, nodeTable.numberOfBits[i], nodeTable.parents[i]);
+        }
 
         // fill result into tree (val, nbBits)
         short[] nbPerRank = new short[HUF_TABLELOG_MAX + 1];   // TODO allocate in context and reuse
@@ -316,10 +316,10 @@ public class HuffmanCompressor
             table.values[n] = valPerRank[table.numberOfBits[n]]++; // assign value within rank, symbol order
         }
 
-//        DebugLog.print("Huffman compression table");
-//        for (int i = 0; i < maxSymbolValue; i++) {
-//            DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
-//        }
+        DebugLog.print("Huffman compression table");
+        for (int i = 0; i < maxSymbolValue; i++) {
+            DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
+        }
         
         return maxNbBits;
     }
@@ -855,8 +855,10 @@ public class HuffmanCompressor
     private static int estimateCompressedSize(HuffmanCompressionTable table, int[] counts, int maxSymbolValue)
     {
         int numberOfBits = 0;
-        for (int symbol = 0; symbol < maxSymbolValue; symbol++) {
+        for (int symbol = 0; symbol <= maxSymbolValue; symbol++) {
             numberOfBits += table.numberOfBits[symbol] * counts[symbol];
+            DebugLog.print("symbol %d: bits=%d, count=%d, total-so-far=%d", symbol, table.numberOfBits[symbol], counts[symbol], numberOfBits);
+
         }
 
         return numberOfBits >>> 3; // convert to bytes
