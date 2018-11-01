@@ -46,9 +46,9 @@ public class FseCompressionTable
 
     public void copy(FseCompressionTable other)
     {
-        if (other.log2Size != log2Size || other.maxSymbol != maxSymbol) {
-            throw new IllegalArgumentException();
-        }
+//        if (other.log2Size != log2Size || other.maxSymbol != maxSymbol) {
+//            throw new IllegalArgumentException();
+//        }
 
         System.arraycopy(other.deltaNumberOfBits, 0, deltaNumberOfBits, 0, other.deltaNumberOfBits.length);
         System.arraycopy(other.deltaFindState, 0, deltaFindState, 0, other.deltaFindState.length);

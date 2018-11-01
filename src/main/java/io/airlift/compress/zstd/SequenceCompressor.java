@@ -168,7 +168,7 @@ class SequenceCompressor
                     previous,
                     fseLog,
                     sequenceCount,
-                    (byte) maxSymbol,
+                    maxSymbol,
                     defaultNorms,
                     defaultNormLog,
                     maxTheoreticalSymbol,
@@ -215,7 +215,7 @@ class SequenceCompressor
                     previous,
                     fseLog,
                     sequenceCount,
-                    (byte) maxSymbol,
+                    maxSymbol,
                     defaultNorms,
                     defaultNormLog,
                     defaultMaxSymbol,
@@ -259,7 +259,7 @@ class SequenceCompressor
                     previous,
                     fseLog,
                     sequenceCount,
-                    (byte) maxSymbol,
+                    maxSymbol,
                     defaultNorms,
                     defaultNormLog,
                     maxTheoreticalSymbol,
@@ -411,7 +411,7 @@ class SequenceCompressor
         int streamSize = blockStream.close();
         verify(streamSize > 0, "Output buffer too small");
 
-//        DebugLog.print("FSE stream size = %d", streamSize);
+        DebugLog.print("FSE stream size = %d", streamSize);
 
         return streamSize;
     }
@@ -444,7 +444,7 @@ class SequenceCompressor
         }
 
         int minGain = calculateMinimumGain(literalsSize, parameters.getStrategy());
-        int headerSize = 3 + (literalsSize > 1024 ? 1 : 0) + (literalsSize > 16384 ? 1 : 0);
+        int headerSize = 3 + (literalsSize >= 1024 ? 1 : 0) + (literalsSize >= 16384 ? 1 : 0);
         boolean singleStream = literalsSize < 256;
 
         verify(headerSize + 1 <= outputSize, "Output buffer too small");
@@ -522,6 +522,8 @@ class SequenceCompressor
             default:  /* not possible : lhSize is {3,4,5} */
                 throw new IllegalStateException();
         }
+
+        DebugLog.print("Compressed literals block size: %d (header: %d, data: %d)", headerSize + compressedSize, headerSize, compressedSize);
 
         return headerSize + compressedSize;
     }
@@ -680,7 +682,7 @@ class SequenceCompressor
         return new EncodingType(SEQUENCE_ENCODING_COMPRESSED, CompressedBlockState.RepeatMode.REPEAT_CHECK);
     }
 
-    private static int buildCompressionTable(Object outputBase, long outputAddress, int outputSize, int encodingType, byte[] codeTable, int[] counts, FseCompressionTable previous, int fseLog, int numberOfSequences, byte maxSymbol, short[] defaultNorm, int defaultNormLog, int defaultMax, FseCompressionTable nextCompressionTable)
+    private static int buildCompressionTable(Object outputBase, long outputAddress, int outputSize, int encodingType, byte[] codeTable, int[] counts, FseCompressionTable previous, int fseLog, int numberOfSequences, int maxSymbol, short[] defaultNorm, int defaultNormLog, int defaultMax, FseCompressionTable nextCompressionTable)
     {
         long output = outputAddress;
         long outputLimit = outputAddress + outputSize;
@@ -693,13 +695,14 @@ class SequenceCompressor
                 FseCompressionTable.makeRleTable(nextCompressionTable, maxSymbol);
                 return 1;
             case SEQUENCE_ENCODING_REPEAT:
+                throw new UnsupportedOperationException("not yet implemented");
                 // TODO: copy previous -> next
-                return 0;
+//                return 0;
             case SEQUENCE_ENCODING_BASIC:
                 FiniteStateEntropy.buildCompressionTable(nextCompressionTable, defaultNorm, defaultMax, defaultNormLog);
                 return 0;
             case SEQUENCE_ENCODING_COMPRESSED:
-                short[] norm = new short[MAX_SEQUENCES];
+                short[] norm = new short[MAX_SEQUENCES + 1]; // TODO: allocate in context
                 int nbSeq_1 = numberOfSequences;
 
                 int tableLog = optimalTableLog(fseLog, numberOfSequences, maxSymbol);

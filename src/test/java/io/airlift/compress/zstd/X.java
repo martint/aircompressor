@@ -14,8 +14,10 @@
 package io.airlift.compress.zstd;
 
 import io.airlift.compress.AbstractTestCompression;
+import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 
@@ -26,9 +28,9 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-        byte[] original = Files.readAllBytes(Paths.get("testdata","silesia", "dickens"));
-        //"XXXXabcdabcdABCDABCDwxyzwzyz123".getBytes(US_ASCII);
-        // new byte[100000];
+        Path path = Paths.get("/usr/local/fb-flake8/flake8-2/future/types/newmemoryview.pyc");
+        byte[] original = Files.readAllBytes(path);
+
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
 
         int maxCompressLength = compressor.maxCompressedLength(original.length);
@@ -36,13 +38,14 @@ public class X
         byte[] control = new byte[maxCompressLength];
         byte[] decompressed = new byte[original.length];
 
-//        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
+        int controlSize = new ZstdJniCompressor(3).compress(original, 0, original.length, control, 0, control.length);
+        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
 
-//        int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
-        int compressedSize = 0;
-        for (int i = 0; i < 1000; i++) {
-            compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
-        }
+//        System.out.println(controlSize + " vs " + compressedSize);
+//        int compressedSize = 0;
+//        for (int i = 0; i < 1000; i++) {
+//            compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+//        }
 
 
         System.err.println("decompressing");
@@ -53,7 +56,8 @@ public class X
 //        AbstractTestCompression.assertByteArraysEqual(compressed, 0, compressedSize, control, 0, controlSize - 4); // don't include checksum
 
         Files.write(Paths.get("corrupted.zst"), Arrays.copyOf(compressed, compressedSize));
-        
+        Files.write(Paths.get("control.zst"), Arrays.copyOf(control, controlSize));
+
         int decompressedSize = new ZstdDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
 //        int decompressedSize = new ZstdJniDecompressor().decompress(compressed, 0, compressedSize, decompressed, 0, decompressed.length);
         AbstractTestCompression.assertByteArraysEqual(original, 0, original.length, decompressed, 0, decompressedSize);

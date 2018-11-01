@@ -249,15 +249,15 @@ class FiniteStateEntropy
             }
             else {
                 short probability = (short) ((counts[symbol] * step) >>> scale);
-//                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
+                DebugLog.print("symbol = %d, count = %d, probability = %d", symbol, counts[symbol], probability);
                 if (probability < 8) {
                     long restToBeat = vstep * REST_TO_BEAT[probability];
-//                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
+                    DebugLog.print("rest-to-beat = %d, count[s]*step = %d, proba<<scale = %d", restToBeat, counts[symbol] * step, probability << scale);
                     long delta = counts[symbol] * step - (((long) probability) << scale);
                     if (delta > restToBeat) {
                         probability++;
                     }
-//                    DebugLog.print("probability = %d", probability);
+                    DebugLog.print("probability = %d", probability);
                 }
                 if (probability > largestProbability) {
                     largestProbability = probability;
@@ -430,12 +430,12 @@ class FiniteStateEntropy
                 // encode remaining in batches of 3 symbols
                 while (symbol >= start + 3) {
                     start += 3;
-                    bitStream += 0b11 << bitCount;
+                    bitStream |= 0b11 << bitCount;
                     bitCount += 2;
                 }
 
                 // encode tail
-                bitStream += (symbol - start) << bitCount;
+                bitStream |= (symbol - start) << bitCount;
                 bitCount += 2;
 
                 // flush bitstream if necessary
@@ -447,7 +447,7 @@ class FiniteStateEntropy
                     UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
                     output += SIZE_OF_SHORT;
 
-                    bitStream >>= Short.SIZE;
+                    bitStream >>>= Short.SIZE;
                     bitCount -= Short.SIZE;
                 }
             }
@@ -459,7 +459,7 @@ class FiniteStateEntropy
             if (count >= threshold) {
                 count += max;
             }
-            bitStream += count << bitCount;
+            bitStream |= count << bitCount;
             bitCount += nbBits;
             bitCount -= (count < max ? 1 : 0);
             previous0 = (count == 1);
@@ -480,7 +480,7 @@ class FiniteStateEntropy
                 UNSAFE.putByte(outputBase, output + 1, (byte) (bitStream >>> 8));
                 output += SIZE_OF_SHORT;
 
-                bitStream >>= Short.SIZE;
+                bitStream >>>= Short.SIZE;
                 bitCount -= Short.SIZE;
             }
         }

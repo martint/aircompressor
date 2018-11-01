@@ -13,8 +13,11 @@
  */
 package io.airlift.compress.zstd;
 
+import com.facebook.presto.hadoop.$internal.com.google.common.primitives.Longs;
+
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.util.Collections;
 
 public class DebugLog
 {
@@ -30,7 +33,42 @@ public class DebugLog
         }
     }
 
-    public static void print(String format, Object... args)
+    public static void print(String format)
+    {
+        if (ENABLED) {
+            print(format, Collections.emptyList());
+        }
+    }
+
+    public static void print(String format, long arg1)
+    {
+        if (ENABLED) {
+            print(format, Longs.asList(arg1));
+        }
+    }
+
+    public static void print(String format, long arg1, long arg2)
+    {
+        if (ENABLED) {
+            print(format, Longs.asList(arg1, arg2));
+        }
+    }
+
+    public static void print(String format, long arg1, long arg2, long arg3)
+    {
+        if (ENABLED) {
+            print(format, Longs.asList(arg1, arg2, arg3));
+        }
+    }
+
+    public static void print(String format, long arg1, long arg2, long arg3, long arg4)
+    {
+        if (ENABLED) {
+            print(format, Longs.asList(arg1, arg2, arg3, arg4));
+        }
+    }
+
+    private static void print(String format, Object... args)
     {
         if (ENABLED) {
             System.err.printf(format + "\n", args);
