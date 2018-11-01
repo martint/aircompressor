@@ -48,11 +48,16 @@ class Histogram
             return new Histogram(0, 0, counts);
         }
 
-        while (input < inputLimit) {
+        for (int i = 0; i < inputSize; i++) {
             int symbol = UNSAFE.getByte(inputBase, input) & 0xFF;
             input++;
             counts[symbol]++;
         }
+//        while (input < inputLimit) {
+//            int symbol = UNSAFE.getByte(inputBase, input) & 0xFF;
+//            input++;
+//            counts[symbol]++;
+//        }
 
         while (counts[maxSymbol] == 0) {
             maxSymbol--;

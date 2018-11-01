@@ -64,6 +64,8 @@ class SequenceStore
 
     public void storeSequence(Object literalBase, long literalAddress, int literalLength, int offsetCode, int matchLengthBase)
     {
+        // TODO: store codes directly?
+
         if (start == 0) {
             start = literalAddress;
         }
@@ -131,9 +133,8 @@ class SequenceStore
     // TODO: rename
     private static int ZSTD_LLcode(int literalLength)
     {
-        int LL_deltaCode = 19;
-        if (literalLength > 63) {
-            return Util.highestBit(literalLength) + LL_deltaCode;
+        if (literalLength >= 64) {
+            return Util.highestBit(literalLength) + 19;
         }
         else {
             return LITERAL_LENGTH_CODE[literalLength];
@@ -155,9 +156,8 @@ class SequenceStore
     // TODO: rename
     private static int ZSTD_MLcode(int mlBase)
     {
-        int ML_deltaCode = 36;
         if (mlBase > 127) {
-            return Util.highestBit(mlBase) + ML_deltaCode;
+            return Util.highestBit(mlBase) + 36;
         }
         else {
             return MATCH_LENGTH_CODE[mlBase];

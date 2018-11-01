@@ -778,6 +778,11 @@ public class HuffmanCompressor
         return bitstream.close();
     }
 
+    // TODO: consider encoding 2 symbols at a time
+    //   - need a table with 256x256 entries with
+    //      - the concatenated bits for the corresponding pair of symbols
+    //      - the sum of bits for the corresponding pair of symbols
+    //   - read 2 symbols at a time from the input
     private static void encodeSymbol(BitstreamEncoder bitstream, int symbol, HuffmanCompressionTable table)
     {
 //        DebugLog.print("Encoded symbol: %3d => %6d (bits: %2d)", symbol, table.values[symbol], table.numberOfBits[symbol]);
