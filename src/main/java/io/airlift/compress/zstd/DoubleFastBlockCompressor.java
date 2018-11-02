@@ -13,42 +13,39 @@
  */
 package io.airlift.compress.zstd;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
-import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class DoubleFastBlockCompressor
         implements BlockCompressor
 {
     public static final int MIN_MATCH = 3;
-    private static final int HASH_READ_SIZE = 8;
     private static final int SEARCH_STRENGTH = 8;
     private static final int REP_MOVE = Constants.REP_CODE_COUNT - 1;
 
-    public int compressBlock(Object inputBase, final long inputAddress, int inputSize, SequenceStore sequenceStore, MatchState matchState, int[] rep, CompressionParameters parameters)
+    public int compressBlock(Object inputBase, final long inputAddress, int inputSize, SequenceStore output, BlockCompressionState state, int[] rep, CompressionParameters parameters)
     {
         int matchSearchLength = Math.max(parameters.getSearchLength(), 4);
 
-        int[] longHashTable = matchState.hashTable;
-        int longShift = Long.SIZE - parameters.getHashLog();
+        // Offsets in hash tables are relative to baseAddress. Hash tables can be reused across calls to compressBlock as long as
+        // baseAddress is kept constant.
+        // We don't want to generate sequences that point before the current window limit, so we "filter" out all results from looking up in the hash tables
+        // beyond that point.
+        long baseAddress = state.baseAddress;
+        long windowBaseAddress = baseAddress + state.windowBaseOffset;
 
-        int[] shortHashTable = matchState.chainTable;
-        int shortShift = Long.SIZE - parameters.getChainLog();
+        int[] longHashTable = state.hashTable;
+        int longHashBits = parameters.getHashLog();
 
-        long baseAddress = matchState.window.baseAddress;
+        int[] shortHashTable = state.chainTable;
+        int shortHashBits = parameters.getChainLog();
+
+        final long inputEnd = inputAddress + inputSize;
+        final long inputLimit = inputEnd - SIZE_OF_LONG; // We read a long at a time for computing the hashes
+
         long input = inputAddress;
         long anchor = inputAddress;
-        final long inputEnd = inputAddress + inputSize;
-        final long inputLimit = inputEnd - HASH_READ_SIZE;
-
-        int prefixLowestIndex = matchState.window.dictLimit;
-        long prefixLowest = baseAddress + prefixLowestIndex;
 
         int offset1 = rep[0];
         int offset2 = rep[1];
@@ -57,11 +54,10 @@ class DoubleFastBlockCompressor
 
 //        DebugLog.print("prefixLowestIndex: %d, hBitsL: %d, hBitsS: %d, srcSize: %d, offset_1: %d, offset_2: %d, mls: %d", prefixLowestIndex, longHashBits, shortHashBits, inputSize, offset1, offset2, matchSearchLength);
 
-        int dictAndPrefixLength = (int) (input - prefixLowest);
-
-        /* init */
-        input += (dictAndPrefixLength == 0) ? 1 : 0;
-        int maxRep = (int) (input - prefixLowest);
+        if (input - windowBaseAddress == 0) {
+            input++;
+        }
+        int maxRep = (int) (input - windowBaseAddress);
 
         if (offset2 > maxRep) {
             offsetSaved = offset2;
@@ -73,20 +69,11 @@ class DoubleFastBlockCompressor
             offset1 = 0;
         }
 
-//        int loop1 = 0;
-//        int loop2 = 0;
-//        int loop3 = 0;
-//        int loop4 = 0;
-//        int loop5 = 0;
-//        int loop6 = 0;
-
         while (input < inputLimit) {   /* < instead of <=, because repcode check at (input+1) */
-//            loop1++;
-
-            int shortHash = hash(inputBase, input, shortShift, matchSearchLength);
+            int shortHash = hash(inputBase, input, shortHashBits, matchSearchLength);
             long shortMatchAddress = baseAddress + shortHashTable[shortHash];
 
-            int longHash = (hash8(UNSAFE.getLong(inputBase, input), longShift));
+            int longHash = hash8(UNSAFE.getLong(inputBase, input), longHashBits);
             long longMatchAddress = baseAddress + longHashTable[longHash];
 
             /* update hash tables */
@@ -103,55 +90,50 @@ class DoubleFastBlockCompressor
                 // found a repeated sequence of at least 4 bytes, separated by offset1
                 matchLength = count(inputBase, input + 1 + SIZE_OF_INT, inputEnd, input + 1 + SIZE_OF_INT - offset1) + SIZE_OF_INT;
                 input++;
-                sequenceStore.storeSequence(inputBase, anchor, (int) (input - anchor), 0, matchLength - MIN_MATCH);
+                output.storeSequence(inputBase, anchor, (int) (input - anchor), 0, matchLength - MIN_MATCH);
             }
             else {
                 /* check prefix long match */
-                if (longMatchAddress > prefixLowest && UNSAFE.getLong(inputBase, longMatchAddress) == UNSAFE.getLong(inputBase, input)) {
+                if (longMatchAddress > windowBaseAddress && UNSAFE.getLong(inputBase, longMatchAddress) == UNSAFE.getLong(inputBase, input)) {
                     matchLength = count(inputBase, input + SIZE_OF_LONG, inputEnd, longMatchAddress + SIZE_OF_LONG) + SIZE_OF_LONG;
                     offset = (int) (input - longMatchAddress);
-                    while (input > anchor && longMatchAddress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, longMatchAddress - 1)) {
+                    while (input > anchor && longMatchAddress > windowBaseAddress && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, longMatchAddress - 1)) {
                         input--;
                         longMatchAddress--;
                         matchLength++;
-//                        loop2++;
                     }
                 }
                 else {
                     /* check prefix short match */
-                    if (shortMatchAddress > prefixLowest && UNSAFE.getInt(inputBase, shortMatchAddress) == UNSAFE.getInt(inputBase, input)) {
-//                    if (shortMatchOffset > prefixLowestIndex && UNSAFE.getInt(inputBase, shortMatchAddress) == UNSAFE.getInt(inputBase, input)) {
-                        int hash2 = hash8(UNSAFE.getLong(inputBase, input + 1), longShift);
+                    if (shortMatchAddress > windowBaseAddress && UNSAFE.getInt(inputBase, shortMatchAddress) == UNSAFE.getInt(inputBase, input)) {
+                        int hash2 = hash8(UNSAFE.getLong(inputBase, input + 1), longHashBits);
                         long matchAddress2 = baseAddress + longHashTable[hash2];
                         longHashTable[hash2] = current + 1;
 
                         /* check prefix long +1 match */
-                        if (matchAddress2 > prefixLowest && UNSAFE.getLong(inputBase, matchAddress2) == UNSAFE.getLong(inputBase, input + 1)) {
+                        if (matchAddress2 > windowBaseAddress && UNSAFE.getLong(inputBase, matchAddress2) == UNSAFE.getLong(inputBase, input + 1)) {
                             matchLength = count(inputBase, input + 1 + SIZE_OF_LONG, inputEnd, matchAddress2 + SIZE_OF_LONG) + SIZE_OF_LONG;
                             input++;
                             offset = (int) (input - matchAddress2);
-                            while (input > anchor && matchAddress2 > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, matchAddress2 - 1)) {
+                            while (input > anchor && matchAddress2 > windowBaseAddress && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, matchAddress2 - 1)) {
                                 input--;
                                 matchAddress2--;
                                 matchLength++;
-//                                loop4++;
                             }
                         }
                         else {
                             /* if no long +1 match, explore the short match we found */
                             matchLength = count(inputBase, input + SIZE_OF_INT, inputEnd, shortMatchAddress + SIZE_OF_INT) + SIZE_OF_INT;
                             offset = (int) (input - shortMatchAddress);
-                            while (input > anchor && shortMatchAddress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, shortMatchAddress - 1)) {
+                            while (input > anchor && shortMatchAddress > windowBaseAddress && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, shortMatchAddress - 1)) {
                                 input--;
                                 shortMatchAddress--;
                                 matchLength++;
-//                                loop5++;
                             }
                         }
                     }
                     else {
                         input += ((input - anchor) >> SEARCH_STRENGTH) + 1;
-//                        loop3++;
                         continue;
                     }
                 }
@@ -159,7 +141,7 @@ class DoubleFastBlockCompressor
                 offset2 = offset1;
                 offset1 = offset;
 
-                sequenceStore.storeSequence(inputBase, anchor, (int) (input - anchor), offset + REP_MOVE, matchLength - MIN_MATCH);
+                output.storeSequence(inputBase, anchor, (int) (input - anchor), offset + REP_MOVE, matchLength - MIN_MATCH);
             }
 
             input += matchLength;
@@ -167,15 +149,11 @@ class DoubleFastBlockCompressor
 
             if (input <= inputLimit) {
                 /* Fill Table */
-                int b = current + 2;
-                long a = baseAddress + b;
-                longHashTable[hash8(UNSAFE.getLong(inputBase, a), longShift)] = b;
-                shortHashTable[hash(inputBase, a, shortShift, matchSearchLength)] = b;
+                longHashTable[hash8(UNSAFE.getLong(inputBase, baseAddress + current + 2), longHashBits)] = current + 2;
+                shortHashTable[hash(inputBase, baseAddress + current + 2, shortHashBits, matchSearchLength)] = current + 2;
 
-                long z = input - 2;
-                int x = (int) (z - baseAddress);
-                longHashTable[hash8(UNSAFE.getLong(inputBase, z), longShift)] = x;
-                shortHashTable[hash(inputBase, z, shortShift, matchSearchLength)] = x;
+                longHashTable[hash8(UNSAFE.getLong(inputBase, input - 2), longHashBits)] = (int) (input - 2 - baseAddress);
+                shortHashTable[hash(inputBase, input - 2, shortHashBits, matchSearchLength)] = (int) (input - 2 - baseAddress);
 
                 while (input <= inputLimit && offset2 > 0 && UNSAFE.getInt(inputBase, input) == UNSAFE.getInt(inputBase, input - offset2)) {
                     int repetitionLength = count(inputBase, input + SIZE_OF_INT, inputEnd, input + SIZE_OF_INT - offset2) + SIZE_OF_INT;
@@ -185,15 +163,13 @@ class DoubleFastBlockCompressor
                     offset2 = offset1;
                     offset1 = temp;
 
-                    int delta = (int) (input - baseAddress);
-                    shortHashTable[hash(inputBase, input, shortShift, matchSearchLength)] = delta;
-                    longHashTable[hash8(UNSAFE.getLong(inputBase, input), longShift)] = delta;
+                    shortHashTable[hash(inputBase, input, shortHashBits, matchSearchLength)] = (int) (input - baseAddress);
+                    longHashTable[hash8(UNSAFE.getLong(inputBase, input), longHashBits)] = (int) (input - baseAddress);
 
-                    sequenceStore.storeSequence(inputBase, anchor, 0, 0, repetitionLength - MIN_MATCH);
+                    output.storeSequence(inputBase, anchor, 0, 0, repetitionLength - MIN_MATCH);
 
                     input += repetitionLength;
                     anchor = input;
-//                    loop6++;
                 }
             }
         }
@@ -201,15 +177,8 @@ class DoubleFastBlockCompressor
         /* save reps for next block */
         rep[0] = offset1 != 0 ? offset1 : offsetSaved;
         rep[1] = offset2 != 0 ? offset2 : offsetSaved;
-
-//        DebugLog.print("loop1: %d", loop1);
-//        DebugLog.print("loop2: %d", loop2);
-//        DebugLog.print("loop3: %d", loop3);
-//        DebugLog.print("loop4: %d", loop4);
-//        DebugLog.print("loop5: %d", loop5);
-//        DebugLog.print("loop6: %d", loop6);
         
-        /* Return the last literals size */
+        // return the last literals size
         return (int) (inputEnd - anchor);
     }
 
@@ -244,72 +213,22 @@ class DoubleFastBlockCompressor
         }
 
         return count;
-
-//        if (input < inputLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, input)) {
-//            input += SIZE_OF_INT;
-//            match += SIZE_OF_INT;
-//        }
-//
-//        if (input < inputLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, input)) {
-//            input += SIZE_OF_SHORT;
-//            match += SIZE_OF_SHORT;
-//        }
-//
-//        if (input < inputLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, input)) {
-//            ++input;
-//        }
-//
-//        return (int) (input - inputAddress);
-    }
-    
-    public static int count2(Object inputBase, final long inputAddress, final long inputLimit, final long matchAddress)
-    {
-        long current = inputAddress;
-        long match = matchAddress;
-
-        // first, compare long at a time
-        while (current < inputLimit - (SIZE_OF_LONG - 1)) {
-            long diff = UNSAFE.getLong(inputBase, match) ^ UNSAFE.getLong(inputBase, current);
-            if (diff != 0) {
-                current += Long.numberOfTrailingZeros(diff) >> 3;
-                return (int) (current - inputAddress);
-            }
-
-            current += SIZE_OF_LONG;
-            match += SIZE_OF_LONG;
-        }
-
-        if (current < inputLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, current)) {
-            current += SIZE_OF_INT;
-            match += SIZE_OF_INT;
-        }
-
-        if (current < inputLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, current)) {
-            current += SIZE_OF_SHORT;
-            match += SIZE_OF_SHORT;
-        }
-
-        if (current < inputLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, current)) {
-            ++current;
-        }
-
-        return (int) (current - inputAddress);
     }
 
-    private static int hash(Object inputBase, long inputAddress, int shift, int matchSearchLength)
+    private static int hash(Object inputBase, long inputAddress, int bits, int matchSearchLength)
     {
-//        switch (matchSearchLength) {
-//            case 8:
-//                return (int) (hash8(UNSAFE.getLong(inputBase, inputAddress), shift));
-//            case 7:
-//                return (int) (hash7(UNSAFE.getLong(inputBase, inputAddress), shift));
-//            case 6:
-//                return (int) (hash6(UNSAFE.getLong(inputBase, inputAddress), shift));
-//            case 5:
-                return (int) (hash5(UNSAFE.getLong(inputBase, inputAddress), shift));
-//            default:
-//                return hash4(UNSAFE.getInt(inputBase, inputAddress), shift);
-//        }
+        switch (matchSearchLength) {
+            case 8:
+                return hash8(UNSAFE.getLong(inputBase, inputAddress), bits);
+            case 7:
+                return hash7(UNSAFE.getLong(inputBase, inputAddress), bits);
+            case 6:
+                return hash6(UNSAFE.getLong(inputBase, inputAddress), bits);
+            case 5:
+                return hash5(UNSAFE.getLong(inputBase, inputAddress), bits);
+            default:
+                return hash4(UNSAFE.getInt(inputBase, inputAddress), bits);
+        }
     }
 
     private static final int PRIME_4_BYTES = 0x9E3779B1;
@@ -318,49 +237,29 @@ class DoubleFastBlockCompressor
     private static final long PRIME_7_BYTES = 0xCF1BBCDCBFA563L;
     private static final long PRIME_8_BYTES = 0xCF1BBCDCB7A56463L;
 
-    private static int hash4(int value, int shift)
+    private static int hash4(int value, int bits)
     {
-        return (value * PRIME_4_BYTES) >>> (Integer.SIZE - (64 - shift));
+        return (value * PRIME_4_BYTES) >>> (Integer.SIZE - bits);
     }
 
-    private static long hash5(long value, int shift)
+    private static int hash5(long value, int bits)
     {
 //        DebugLog.print("hash5: value: %d, bits: %d", value, bits);
-        return ((value << (Long.SIZE - 40)) * PRIME_5_BYTES) >>> shift;
+        return (int) (((value << (Long.SIZE - 40)) * PRIME_5_BYTES) >>> (Long.SIZE - bits));
     }
 
-    private static long hash6(long value, int shift)
+    private static int hash6(long value, int bits)
     {
-        return ((value << (Long.SIZE - 48)) * PRIME_6_BYTES) >>> shift;
+        return (int) (((value << (Long.SIZE - 48)) * PRIME_6_BYTES) >>> (Long.SIZE - bits));
     }
 
-    private static long hash7(long value, int shift)
+    private static int hash7(long value, int bits)
     {
-        return ((value << (Long.SIZE - 56)) * PRIME_7_BYTES) >>> shift;
+        return (int) (((value << (Long.SIZE - 56)) * PRIME_7_BYTES) >>> (Long.SIZE - bits));
     }
 
-//    private static long hash8(long value, int bits)
-//    {
-//        return (value * PRIME_8_BYTES) >>> (Long.SIZE - bits);
-//    }
-
-    private static int hash8(long value, int shift)
+    private static int hash8(long value, int bits)
     {
-        return (int) ((value * PRIME_8_BYTES) >>> shift);
-    }
-
-    public static void main(String[] args)
-            throws IOException
-    {
-        byte[] data = Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
-        CompressionParameters parameters = CompressionParameters.compute(0, data.length);
-
-        CompressionContext context = new CompressionContext(parameters, data.length);
-
-        DoubleFastBlockCompressor compressor = new DoubleFastBlockCompressor();
-        System.err.println(compressor.compressBlock(data, ARRAY_BYTE_BASE_OFFSET, context.blockSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters));
-
-        System.err.println(context.sequenceStore.sequenceCount);
-        System.err.println(context.sequenceStore.literalsOffset);
+        return (int) ((value * PRIME_8_BYTES) >>> (Long.SIZE - bits));
     }
 }

@@ -29,6 +29,7 @@ import static io.airlift.compress.zstd.Constants.SIZE_OF_BLOCK_HEADER;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
+import static io.airlift.compress.zstd.Util.put24BitLittleEndian;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -160,11 +161,7 @@ class ZstdFrameCompressor
         long output = outputAddress;
         long input = inputAddress;
 
-        CompressionContext context = new CompressionContext(parameters, remaining);
-        context.matchState.window = new Window();
-        context.matchState.window.baseAddress = inputAddress;
-
-//        int block = 0;
+        CompressionContext context = new CompressionContext(parameters, inputAddress, remaining);
 
         do {
             verify(outputSize >= SIZE_OF_BLOCK_HEADER + MIN_BLOCK_SIZE, output, "Output buffer too small");
@@ -172,28 +169,6 @@ class ZstdFrameCompressor
             int lastBlockFlag = blockSize >= remaining ? 1 : 0;
             blockSize = Math.min(blockSize, remaining);
 
-//                 TODO
-//            if (needsOverflowCorrection(windowBase, input + blockSize)) {
-//                int cycleLog = cycleLog(parameters.getChainLog(), parameters.getStrategy());
-//                int correction = ZSTD_window_correctOverflow(&ms->window, cycleLog, maxDist, ip);
-//
-//                ZSTD_reduceIndex(cctx, correction);
-//                if (ms->nextToUpdate < correction) ms->nextToUpdate = 0;
-//                else ms->nextToUpdate -= correction;
-//                ms->loadedDictEnd = 0;
-//                ms->dictMatchState = NULL;
-//            }
-
-//            ZSTD_window_enforceMaxDist(&ms->window, ip + blockSize, maxDist, &ms->loadedDictEnd, &ms->dictMatchState);
-            enforceMaxDistance(context.matchState.window, input + blockSize, 1 << parameters.getWindowLog());
-
-//            ZSTD_window_enforceMaxDist(&ms->window, ip + blockSize, maxDist, &ms->loadedDictEnd, &ms->dictMatchState);
-//
-//            if (ms->nextToUpdate < ms->window.lowLimit) {
-//                ms->nextToUpdate = ms->window.lowLimit;
-//            }
-
-//            block++;
 //            DebugLog.print("Compressing block %d, output offset = %d (within frame: %d)\n", block, output - 16, output - outputAddress);
             int compressedSize = 0;
             if (remaining > 0) {
@@ -201,27 +176,18 @@ class ZstdFrameCompressor
                 compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
             }
 
-            if (compressedSize == 0) {  /* block is not compressible */
+            if (compressedSize == 0) {  // block is not compressible 
 //                DebugLog.print("Not compressible. Writing raw block at offset %d", output);
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
                 int blockHeader = lastBlockFlag | (RAW_BLOCK << 1) | (blockSize << 3);
-
-                // write 24 bits -- TODO: factor out
-                UNSAFE.putShort(outputBase, output, (short) blockHeader);
-                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> Short.SIZE));
-
+                put24BitLittleEndian(outputBase, output, blockHeader);
                 UNSAFE.copyMemory(inputBase, input, outputBase, output + SIZE_OF_BLOCK_HEADER, blockSize);
-
                 compressedSize = SIZE_OF_BLOCK_HEADER + blockSize;
             }
             else {
                 int blockHeader = lastBlockFlag | (COMPRESSED_BLOCK << 1) | (compressedSize << 3);
-
-                // write 24 bits -- TODO: factor out
-                UNSAFE.putShort(outputBase, output, (short) blockHeader);
-                UNSAFE.putByte(outputBase, output + SIZE_OF_SHORT, (byte) (blockHeader >>> Short.SIZE));
-
+                put24BitLittleEndian(outputBase, output, blockHeader);
                 compressedSize += SIZE_OF_BLOCK_HEADER;
             }
 
@@ -235,21 +201,6 @@ class ZstdFrameCompressor
         return (int) (output - outputAddress);
     }
 
-    private static void enforceMaxDistance(Window window, long sourceEnd, int maxDistance)
-    {
-        int currentDistance = (int) (sourceEnd - window.baseAddress);
-        DebugLog.print("enforce max window distance: current=%d, maxDist=%d", currentDistance, maxDistance);
-
-        int newLowLimit = currentDistance - maxDistance;
-        if (window.lowLimit < newLowLimit) {
-            window.lowLimit = newLowLimit;
-        }
-        if (window.dictLimit < window.lowLimit) {
-            DebugLog.print("Update dictLimit to match lowLimit, from %d to %d", window.dictLimit, window.lowLimit);
-            window.dictLimit = window.lowLimit;
-        }
-    }
-
     private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, CompressionContext context, CompressionParameters parameters)
     {
         if (inputSize < MIN_BLOCK_SIZE + SIZE_OF_BLOCK_HEADER + 1) {
@@ -257,20 +208,9 @@ class ZstdFrameCompressor
             return 0;
         }
 
+        context.blockCompressionState.enforceMaxDistance(inputAddress + inputSize, 1 << parameters.getWindowLog());
+        
         context.sequenceStore.reset();
-/*
-        ZSTD_matchState_t* const ms = &zc->blockState.matchState;
-        ms->opt.symbolCosts = &zc->blockState.prevCBlock->entropy;   *//* required for optimal parser to read stats from dictionary *//*
-
-     *//* limited update after a very long match *//*
-        const BYTE* const base = ms->window.base;
-        const BYTE* const istart = (const BYTE*)src;
-        const U32 current = (U32)(istart-base);
-        if (sizeof(ptrdiff_t)==8) assert(istart - base < (ptrdiff_t)(U32)(-1));   *//* ensure no overflow *//*
-        if (current > ms->nextToUpdate + 384) {
-            ms -> nextToUpdate = current - MIN(192, (U32) (current - ms -> nextToUpdate - 384));
-        }
-        */
 
         for (int i = 0; i < REP_CODE_COUNT; i++) {
             context.blockState.next.rep[i] = context.blockState.previous.rep[i];
@@ -278,7 +218,7 @@ class ZstdFrameCompressor
 
         int lastLiteralsSize = parameters.getStrategy()
                 .getCompressor()
-                .compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.matchState, context.blockState.next.rep, parameters);
+                .compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.blockCompressionState, context.blockState.next.rep, parameters);
         
         long lastLiteralsAddress = inputAddress + inputSize - lastLiteralsSize;
 
@@ -298,7 +238,7 @@ class ZstdFrameCompressor
             return 0; // not compressed
         }
 
-        /* confirm repcodes and entropy tables */
+        // confirm repcodes and entropy tables 
         CompressedBlockState temp = context.blockState.previous;
         context.blockState.previous = context.blockState.next;
         context.blockState.next = temp;

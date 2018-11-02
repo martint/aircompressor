@@ -29,6 +29,7 @@ import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.FiniteStateEntropy.optimalTableLog;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
+import static io.airlift.compress.zstd.Util.put24BitLittleEndian;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -90,7 +91,7 @@ class SequenceCompressor
 
         /* Compress literals */
         byte[] literals = sequences.literalsBuffer;
-        int litSize = sequences.literalsOffset;
+        int litSize = sequences.literalsLength;
 
         output += compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters, outputBase, output, outputSize, literals, litSize);
 
@@ -501,11 +502,7 @@ class SequenceCompressor
         switch (headerSize) {
             case 3: { // 2 - 2 - 10 - 10
                 int header = encodingType | ((singleStream ? 0 : 1) << 2) | (literalsSize << 4) | (compressedSize << 14);
-
-                // write 24 bits -- TODO: factor out
-                UNSAFE.putShort(outputBase, outputAddress, (short) header);
-                UNSAFE.putByte(outputBase, outputAddress + SIZE_OF_SHORT, (byte) (header >>> Short.SIZE));
-
+                put24BitLittleEndian(outputBase, outputAddress, header);
                 break;
             }
             case 4: { // 2 - 2 - 14 - 14
