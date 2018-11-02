@@ -101,14 +101,14 @@ class DoubleFastBlockCompressor
 
             if (offset1 > 0 && UNSAFE.getInt(inputBase, input + 1 - offset1) == UNSAFE.getInt(inputBase, input + 1)) {
                 // found a repeated sequence of at least 4 bytes, separated by offset1
-                matchLength = count(inputBase, input + 1 + SIZE_OF_INT, input + 1 + SIZE_OF_INT - offset1, inputEnd) + SIZE_OF_INT;
+                matchLength = count(inputBase, input + 1 + SIZE_OF_INT, inputEnd, input + 1 + SIZE_OF_INT - offset1) + SIZE_OF_INT;
                 input++;
                 sequenceStore.storeSequence(inputBase, anchor, (int) (input - anchor), 0, matchLength - MIN_MATCH);
             }
             else {
                 /* check prefix long match */
                 if (longMatchAddress > prefixLowest && UNSAFE.getLong(inputBase, longMatchAddress) == UNSAFE.getLong(inputBase, input)) {
-                    matchLength = count(inputBase, input + SIZE_OF_LONG, longMatchAddress + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
+                    matchLength = count(inputBase, input + SIZE_OF_LONG, inputEnd, longMatchAddress + SIZE_OF_LONG) + SIZE_OF_LONG;
                     offset = (int) (input - longMatchAddress);
                     while (input > anchor && longMatchAddress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, longMatchAddress - 1)) {
                         input--;
@@ -127,7 +127,7 @@ class DoubleFastBlockCompressor
 
                         /* check prefix long +1 match */
                         if (matchAddress2 > prefixLowest && UNSAFE.getLong(inputBase, matchAddress2) == UNSAFE.getLong(inputBase, input + 1)) {
-                            matchLength = count(inputBase, input + 1 + SIZE_OF_LONG, matchAddress2 + SIZE_OF_LONG, inputEnd) + SIZE_OF_LONG;
+                            matchLength = count(inputBase, input + 1 + SIZE_OF_LONG, inputEnd, matchAddress2 + SIZE_OF_LONG) + SIZE_OF_LONG;
                             input++;
                             offset = (int) (input - matchAddress2);
                             while (input > anchor && matchAddress2 > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, matchAddress2 - 1)) {
@@ -139,7 +139,7 @@ class DoubleFastBlockCompressor
                         }
                         else {
                             /* if no long +1 match, explore the short match we found */
-                            matchLength = count(inputBase, input + SIZE_OF_INT, shortMatchAddress + SIZE_OF_INT, inputEnd) + SIZE_OF_INT;
+                            matchLength = count(inputBase, input + SIZE_OF_INT, inputEnd, shortMatchAddress + SIZE_OF_INT) + SIZE_OF_INT;
                             offset = (int) (input - shortMatchAddress);
                             while (input > anchor && shortMatchAddress > prefixLowest && UNSAFE.getByte(inputBase, input - 1) == UNSAFE.getByte(inputBase, shortMatchAddress - 1)) {
                                 input--;
@@ -178,7 +178,7 @@ class DoubleFastBlockCompressor
                 shortHashTable[hash(inputBase, z, shortShift, matchSearchLength)] = x;
 
                 while (input <= inputLimit && offset2 > 0 && UNSAFE.getInt(inputBase, input) == UNSAFE.getInt(inputBase, input - offset2)) {
-                    int repetitionLength = count(inputBase, input + SIZE_OF_INT, input + SIZE_OF_INT - offset2, inputEnd) + SIZE_OF_INT;
+                    int repetitionLength = count(inputBase, input + SIZE_OF_INT, inputEnd, input + SIZE_OF_INT - offset2) + SIZE_OF_INT;
 
                     /* swap offset2 <=> offset1 */
                     int temp = offset2;
@@ -214,80 +214,80 @@ class DoubleFastBlockCompressor
     }
 
     // TODO: same as LZ4RawCompressor.count
-    public static int count(Object inputBase, final long start, final long matchStart, final long matchLimit)
+    /**
+     * matchAddress must be < inputAddress
+     */
+    public static int count(Object inputBase, final long inputAddress, final long inputLimit, final long matchAddress)
     {
-        long current = start;
-        long match = matchStart;
+        long input = inputAddress;
+        long match = matchAddress;
 
-        int inputSize = (int) (matchLimit - start);
+        int remaining = (int) (inputLimit - inputAddress);
 
         // first, compare long at a time
-        int i = 0;
-        while (i < inputSize - (SIZE_OF_LONG - 1)) {
-            long diff = UNSAFE.getLong(inputBase, match) ^ UNSAFE.getLong(inputBase, current);
+        int count = 0;
+        while (count < remaining - (SIZE_OF_LONG - 1)) {
+            long diff = UNSAFE.getLong(inputBase, match) ^ UNSAFE.getLong(inputBase, input);
             if (diff != 0) {
-                return i + (Long.numberOfTrailingZeros(diff) >> 3);
+                int x = count2(inputBase, inputAddress, inputLimit, matchAddress);
+                if (x != (count + (Long.numberOfTrailingZeros(diff) >> 3))) {
+                    System.out.println();
+                }
+                
+                return count + (Long.numberOfTrailingZeros(diff) >> 3);
             }
 
-            i += SIZE_OF_LONG;
-            current += SIZE_OF_LONG;
+            count += SIZE_OF_LONG;
+            input += SIZE_OF_LONG;
             match += SIZE_OF_LONG;
         }
 
-        return countTail(inputBase, start, matchLimit, current, match);
+        while (count < remaining && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, input)) {
+            count++;
+            match++;
+            input++;
+        }
+
+        int x = count2(inputBase, inputAddress, inputLimit, matchAddress);
+        if (x != count) {
+            int y = count2(inputBase, inputAddress, inputLimit, matchAddress);
+            System.out.println();
+        }
+        return count;
     }
-
-    private static int countTail(Object inputBase, long start, long matchLimit, long current, long match)
+    
+    public static int count2(Object inputBase, final long inputAddress, final long inputLimit, final long matchAddress)
     {
-        if (current < matchLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, current)) {
-            current += SIZE_OF_INT;
-            match += SIZE_OF_INT;
-        }
-
-        if (current < matchLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, current)) {
-            current += SIZE_OF_SHORT;
-            match += SIZE_OF_SHORT;
-        }
-
-        if (current < matchLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, current)) {
-            ++current;
-        }
-
-        return (int) (current - start);
-    }
-
-    public static int count2(Object inputBase, final long start, final long matchStart, final long matchLimit)
-    {
-        long current = start;
-        long match = matchStart;
+        long current = inputAddress;
+        long match = matchAddress;
 
         // first, compare long at a time
-        while (current < matchLimit - (SIZE_OF_LONG - 1)) {
+        while (current < inputLimit - (SIZE_OF_LONG - 1)) {
             long diff = UNSAFE.getLong(inputBase, match) ^ UNSAFE.getLong(inputBase, current);
             if (diff != 0) {
                 current += Long.numberOfTrailingZeros(diff) >> 3;
-                return (int) (current - start);
+                return (int) (current - inputAddress);
             }
 
             current += SIZE_OF_LONG;
             match += SIZE_OF_LONG;
         }
 
-        if (current < matchLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, current)) {
+        if (current < inputLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, current)) {
             current += SIZE_OF_INT;
             match += SIZE_OF_INT;
         }
 
-        if (current < matchLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, current)) {
+        if (current < inputLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, current)) {
             current += SIZE_OF_SHORT;
             match += SIZE_OF_SHORT;
         }
 
-        if (current < matchLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, current)) {
+        if (current < inputLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, current)) {
             ++current;
         }
 
-        return (int) (current - start);
+        return (int) (current - inputAddress);
     }
 
     private static int hash(Object inputBase, long inputAddress, int shift, int matchSearchLength)

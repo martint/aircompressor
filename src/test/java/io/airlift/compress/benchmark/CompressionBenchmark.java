@@ -56,10 +56,10 @@ public class CompressionBenchmark
     private byte[] uncompressTarget;
 
     @Param({
-            "airlift_lz4",
+//            "airlift_lz4",
 //            "airlift_lzo",
 //            "airlift_snappy",
-//            "airlift_zstd",
+            "airlift_zstd",
 
 //            "iq80_snappy",
 //            "xerial_snappy",

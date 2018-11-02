@@ -70,14 +70,14 @@ public class BenchmarkCount
     @Benchmark
     public long count()
     {
-        int count = DoubleFastBlockCompressor.count(input, start, matchStart, matchLimit);
+        int count = DoubleFastBlockCompressor.count(input, start, matchLimit, matchStart);
         return count;
     }
 
     @Benchmark
     public long count2()
     {
-        int count = DoubleFastBlockCompressor.count2(input, start, matchStart, matchLimit);
+        int count = DoubleFastBlockCompressor.count2(input, start, matchLimit, matchStart);
         return count;
     }
 
