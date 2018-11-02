@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.SECONDS)
 @Measurement(iterations = 10)
 @Warmup(iterations = 5)
-@Fork(3)
+@Fork(1)
 public class CompressionBenchmark
 {
     private Compressor compressor;
@@ -56,16 +56,16 @@ public class CompressionBenchmark
     private byte[] uncompressTarget;
 
     @Param({
-//            "airlift_lz4",
+            "airlift_lz4",
 //            "airlift_lzo",
 //            "airlift_snappy",
-            "airlift_zstd",
+//            "airlift_zstd",
 
 //            "iq80_snappy",
 //            "xerial_snappy",
 //            "jpountz_lz4_jni",
 //            "hadoop_lzo",
-            "zstd_jni",
+//            "zstd_jni",
 
 //            "airlift_lz4_stream",
 //            "airlift_lzo_stream",

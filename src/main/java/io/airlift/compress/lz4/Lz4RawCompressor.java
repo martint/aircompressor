@@ -266,7 +266,7 @@ public final class Lz4RawCompressor
 
         return (int) (current - start);
     }
-
+    
     private static long emitLastLiteral(
             final Object outputBase,
             final long outputAddress,

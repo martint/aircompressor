@@ -164,6 +164,7 @@ class ZstdFrameCompressor
         context.matchState.window = new Window();
         context.matchState.window.baseAddress = inputAddress;
 
+//        int block = 0;
 
         do {
             verify(outputSize >= SIZE_OF_BLOCK_HEADER + MIN_BLOCK_SIZE, output, "Output buffer too small");
@@ -192,6 +193,8 @@ class ZstdFrameCompressor
 //                ms->nextToUpdate = ms->window.lowLimit;
 //            }
 
+//            block++;
+//            DebugLog.print("Compressing block %d, output offset = %d (within frame: %d)\n", block, output - 16, output - outputAddress);
             int compressedSize = 0;
             if (remaining > 0) {
 //                DebugLog.print("Compressing block (remaining = %d). Current output offset: %d", remaining, output);
