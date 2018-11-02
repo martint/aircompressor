@@ -229,11 +229,6 @@ class DoubleFastBlockCompressor
         while (count < remaining - (SIZE_OF_LONG - 1)) {
             long diff = UNSAFE.getLong(inputBase, match) ^ UNSAFE.getLong(inputBase, input);
             if (diff != 0) {
-                int x = count2(inputBase, inputAddress, inputLimit, matchAddress);
-                if (x != (count + (Long.numberOfTrailingZeros(diff) >> 3))) {
-                    System.out.println();
-                }
-                
                 return count + (Long.numberOfTrailingZeros(diff) >> 3);
             }
 
@@ -244,16 +239,27 @@ class DoubleFastBlockCompressor
 
         while (count < remaining && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, input)) {
             count++;
-            match++;
             input++;
+            match++;
         }
 
-        int x = count2(inputBase, inputAddress, inputLimit, matchAddress);
-        if (x != count) {
-            int y = count2(inputBase, inputAddress, inputLimit, matchAddress);
-            System.out.println();
-        }
         return count;
+
+//        if (input < inputLimit - (SIZE_OF_INT - 1) && UNSAFE.getInt(inputBase, match) == UNSAFE.getInt(inputBase, input)) {
+//            input += SIZE_OF_INT;
+//            match += SIZE_OF_INT;
+//        }
+//
+//        if (input < inputLimit - (SIZE_OF_SHORT - 1) && UNSAFE.getShort(inputBase, match) == UNSAFE.getShort(inputBase, input)) {
+//            input += SIZE_OF_SHORT;
+//            match += SIZE_OF_SHORT;
+//        }
+//
+//        if (input < inputLimit && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, input)) {
+//            ++input;
+//        }
+//
+//        return (int) (input - inputAddress);
     }
     
     public static int count2(Object inputBase, final long inputAddress, final long inputLimit, final long matchAddress)

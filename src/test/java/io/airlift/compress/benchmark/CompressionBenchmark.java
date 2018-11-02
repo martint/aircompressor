@@ -41,9 +41,9 @@ import java.util.concurrent.TimeUnit;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
-@Measurement(iterations = 10)
+@Measurement(iterations = 15)
 @Warmup(iterations = 5)
-@Fork(1)
+@Fork(3)
 public class CompressionBenchmark
 {
     private Compressor compressor;

@@ -258,8 +258,8 @@ public final class Lz4RawCompressor
 
         while (count < remaining && UNSAFE.getByte(inputBase, match) == UNSAFE.getByte(inputBase, input)) {
             count++;
+            input++;
             match++;
-            count++;
         }
 
         return count;
