@@ -15,15 +15,19 @@ package io.airlift.compress.zstd;
 
 import java.util.Arrays;
 
-class MatchState
+class BlockCompressionState
 {
     public final int[] hashTable;
     public final int[] chainTable;
 
-    public Window window;
+    public final long baseAddress;
 
-    public MatchState(CompressionParameters parameters)
+    // starting point of the window with respect to baseAddress
+    int windowBaseOffset;
+
+    public BlockCompressionState(CompressionParameters parameters, long baseAddress)
     {
+        this.baseAddress = baseAddress;
         hashTable = new int[1 << parameters.getHashLog()];
         chainTable = new int[1 << parameters.getChainLog()]; // TODO: chain table not used by Strategy.FAST
     }
@@ -32,6 +36,16 @@ class MatchState
     {
         Arrays.fill(hashTable, 0);
         Arrays.fill(chainTable, 0);
+    }
+
+    public void enforceMaxDistance(long inputLimit, int maxDistance)
+    {
+        int distance = (int) (inputLimit - baseAddress);
+
+        int newOffset = distance - maxDistance;
+        if (windowBaseOffset < newOffset) {
+            windowBaseOffset = newOffset;
+        }
     }
 
 //    void reset(CompressionParameters parameters, boolean forContext)

@@ -15,7 +15,7 @@ package io.airlift.compress.zstd;
 
 interface BlockCompressor
 {
-    BlockCompressor UNSUPPORTED = (inputBase, inputAddress, inputSize, sequenceStore, matchState, rep, parameters) -> { throw new UnsupportedOperationException(); };
+    BlockCompressor UNSUPPORTED = (inputBase, inputAddress, inputSize, sequenceStore, blockCompressionState, rep, parameters) -> { throw new UnsupportedOperationException(); };
 
-    int compressBlock(Object inputBase, long inputAddress, int inputSize, SequenceStore sequenceStore, MatchState matchState, int[] rep, CompressionParameters parameters);
+    int compressBlock(Object inputBase, long inputAddress, int inputSize, SequenceStore output, BlockCompressionState state, int[] rep, CompressionParameters parameters);
 }

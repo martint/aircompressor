@@ -16,6 +16,5 @@ package io.airlift.compress.zstd;
 class Window
 {
     long baseAddress;
-    int lowLimit;
-    int dictLimit;
+
 }
