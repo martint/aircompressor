@@ -15,7 +15,7 @@ package io.airlift.compress.zstd;
 
 import java.util.Arrays;
 
-import static io.airlift.compress.zstd.HuffmanCompressionContext.MAX_SYMBOL_COUNT;
+import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL_COUNT;
 
 public class HuffmanCompressionTable
 {

@@ -203,6 +203,7 @@ class ZstdFrameCompressor
 
     private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, CompressionContext context, CompressionParameters parameters)
     {
+
         if (inputSize < MIN_BLOCK_SIZE + SIZE_OF_BLOCK_HEADER + 1) {
             //  don't even attempt compression below a certain input size
             return 0;
@@ -225,8 +226,24 @@ class ZstdFrameCompressor
         // append [lastLiteralsAddress .. lastLiteralsSize] to sequenceStore literals buffer
         context.sequenceStore.appendLiterals(inputBase, lastLiteralsAddress, lastLiteralsSize);
 
-        int compressedSize = SequenceCompressor.compress(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, outputAddress, outputSize);
+        long outputLimit = outputAddress + outputSize;
+        long output = outputAddress;
 
+        context.blockState.next.entropy.huffman.table.copyFrom(context.blockState.previous.entropy.huffman.table);
+        int compressedLiteralsSize = SequenceCompressor.compressLiterals(
+                context.blockState.previous.entropy.huffman.repeat,
+                context.blockState.next.entropy.huffman,
+                parameters,
+                outputBase,
+                output,
+                (int) (outputLimit - output),
+                context.sequenceStore.literalsBuffer,
+                context.sequenceStore.literalsLength);
+        output += compressedLiteralsSize;
+
+        int compressedSequencesSize = SequenceCompressor.compressSequences(context.sequenceStore, context.blockState.previous.entropy, context.blockState.next.entropy, parameters, outputBase, output, (int) (outputLimit - output));
+
+        int compressedSize = compressedLiteralsSize + compressedSequencesSize;
         if (compressedSize == 0) {
             // not compressible
             return compressedSize;

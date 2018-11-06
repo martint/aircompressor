@@ -47,36 +47,4 @@ class BlockCompressionState
             windowBaseOffset = newOffset;
         }
     }
-
-//    void reset(CompressionParameters parameters, boolean forContext)
-//    {
-//        int hashSize = 1 << parameters.getHashLog();
-//        int chainSize = 1 << parameters.getChainLog();  // TODO: chain table not used by Strategy.FAST
-//
-//        int hashLog3 = (forContext && parameters.getSearchLength() == 3) ? Math.min(ZSTD_HASHLOG3_MAX, parameters.getWindowLog()) : 0;
-//        int h3Size = 1 << hashLog3;
-//        int tableSpace = (chainSize + hashSize + h3Size) * SizeOf.SIZE_OF_INT;
-
-//        ms->hashLog3 = hashLog3;
-//        memset(&ms->window, 0, sizeof(ms->window));
-//        ZSTD_invalidateMatchState(ms);
-
-        /* opt parser space */
-//        if (forContext && (parameters.getStrategy() == CompressionParameters.Strategy.BTOPT || (parameters.getStrategy() == CompressionParameters.Strategy.BTULTRA))) {
-//            ms->opt.litFreq = (U32*)ptr;
-//            ms->opt.litLengthFreq = ms->opt.litFreq + (1<<Litbits);
-//            ms->opt.matchLengthFreq = ms->opt.litLengthFreq + (MaxLL+1);
-//            ms->opt.offCodeFreq = ms->opt.matchLengthFreq + (MaxML+1);
-//            ptr = ms->opt.offCodeFreq + (MaxOff+1);
-//            ms->opt.matchTable = (ZSTD_match_t*)ptr;
-//            ptr = ms->opt.matchTable + ZSTD_OPT_NUM+1;
-//            ms->opt.priceTable = (ZSTD_optimal_t*)ptr;
-//            ptr = ms->opt.priceTable + ZSTD_OPT_NUM+1;
-//        }
-
-//        /* table Space */
-//        int[] hashTable = new int[hashSize];
-//        int[] chainTable = new int[chainSize];
-//        int[] hashTable3 = new int[h3Size];
-//    }
 }

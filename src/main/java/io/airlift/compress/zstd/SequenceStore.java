@@ -17,8 +17,6 @@ import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
-//import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
-
 class SequenceStore
 {
     // TODO: single contiguous buffer for all?

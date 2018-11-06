@@ -18,30 +18,19 @@ import java.util.Arrays;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.FiniteStateEntropy.DEFAULT_TABLE_LOG;
-import static io.airlift.compress.zstd.FiniteStateEntropy.MAX_TABLE_LOG;
 import static io.airlift.compress.zstd.FiniteStateEntropy.MIN_TABLE_LOG;
 import static io.airlift.compress.zstd.FiniteStateEntropy.minTableLog;
-import static io.airlift.compress.zstd.HuffmanCompressionContext.HUF_SYMBOLVALUE_MAX;
-import static io.airlift.compress.zstd.HuffmanCompressionContext.MAX_SYMBOL_COUNT;
+import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL;
+import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL_COUNT;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public class HuffmanCompressor
 {
-    public static final int HUF_BLOCKSIZE_MAX = 128 * 1024;
-    public static final int HUF_TABLELOG_MAX = 12;
+    public static final int MAX_BLOCK_SIZE = 128 * 1024;
+    public static final int MAX_TABLE_LOG = 12;
     public static final int HUF_TABLELOG_DEFAULT = 11;
-
-//    static size_t HUF_compress_internal (
-//            void* dst, size_t dstSize,
-//                const void* src, size_t srcSize,
-//            unsigned maxSymbolValue, unsigned huffLog,
-//            unsigned singleStream,
-//            void* workSpace, size_t wkspSize,
-//            HUF_CElt* oldHufTable, HUF_repeat* repeat, int preferRepeat,
-//                const int bmi2)
-//    {
 
     public static int compress(
             Object outputBase,
@@ -51,10 +40,10 @@ public class HuffmanCompressor
             long inputAddress,
             int inputSize,
             int maxSymbolValue,
-            int huffLog,
+            int tableLog,
             boolean singleStream,
             HuffmanCompressionContext context,
-            HuffmanCompressionTable oldHufTable,
+            HuffmanCompressionTable previous,
             boolean preferRepeat)
     {
         if (inputSize == 0) {
@@ -65,21 +54,21 @@ public class HuffmanCompressor
             return 0; // cannot fit anything within output budget
         }
 
-        verify(inputSize <= HUF_BLOCKSIZE_MAX, "Input block too large");
-        verify(huffLog <= HUF_TABLELOG_MAX, "Compression table too large");
-        verify(maxSymbolValue <= HUF_SYMBOLVALUE_MAX, "Max symbol too large");
+        verify(inputSize <= MAX_BLOCK_SIZE, "Input block too large");
+        verify(tableLog <= MAX_TABLE_LOG, "Compression table too large");
+        verify(maxSymbolValue <= MAX_SYMBOL, "Max symbol too large");
 
         if (maxSymbolValue == 0) { // TODO: necessary?
-            maxSymbolValue = HUF_SYMBOLVALUE_MAX;
+            maxSymbolValue = MAX_SYMBOL;
         }
 
-        if (huffLog == 0) {
-            huffLog = HUF_TABLELOG_DEFAULT;
+        if (tableLog == 0) { // TODO: necessary?
+            tableLog = HUF_TABLELOG_DEFAULT;
         }
 
         // Heuristic : If old table is valid, use it for small inputs
         if (preferRepeat && context.repeat == CompressedBlockState.RepeatMode.REPEAT_VALID) {
-            return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, oldHufTable, 0);
+            return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
         }
 
         Histogram histogram = Histogram.count(inputBase, inputAddress, inputSize, maxSymbolValue);
@@ -98,30 +87,30 @@ public class HuffmanCompressor
             return 0;
         }
 
-        if (context.repeat == CompressedBlockState.RepeatMode.REPEAT_CHECK && !isTableValid(oldHufTable, counts, maxSymbolValue)) {
+        if (context.repeat == CompressedBlockState.RepeatMode.REPEAT_CHECK && !isTableValid(previous, counts, maxSymbolValue)) {
             context.repeat = CompressedBlockState.RepeatMode.REPEAT_NONE;
         }
 
         // heuristic: use existing table for small inputs
         if (preferRepeat && context.repeat != CompressedBlockState.RepeatMode.REPEAT_NONE) {
-            return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, oldHufTable, 0);
+            return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
         }
 
         // build huffman tree
-        huffLog = optimalTableLog(huffLog, inputSize, maxSymbolValue);
-        huffLog = buildCompressionTable(context.table, counts, maxSymbolValue, huffLog, context.nodeTable);
+        tableLog = optimalTableLog(tableLog, inputSize, maxSymbolValue);
+        tableLog = buildCompressionTable(context.table, counts, maxSymbolValue, tableLog, context.nodeTable);
 
-        // Zero unused symbols in CTable, so we can check it for validity */
+        // Zero unused symbols in CTable, so we can check it for validity
         context.table.trim(maxSymbolValue);
 
         // Write table description header
-        int headerSize = writeHuffmanTable(outputBase, outputAddress, outputSize, context.table, maxSymbolValue, huffLog);
+        int headerSize = writeHuffmanTable(outputBase, outputAddress, outputSize, context.table, maxSymbolValue, tableLog);
         // Check if using previous huffman table is beneficial
         if (context.repeat != CompressedBlockState.RepeatMode.REPEAT_NONE) {
-            int oldSize = estimateCompressedSize(oldHufTable, counts, maxSymbolValue);
+            int oldSize = estimateCompressedSize(previous, counts, maxSymbolValue);
             int newSize = estimateCompressedSize(context.table, counts, maxSymbolValue);
             if (oldSize <= headerSize + newSize || headerSize + 12 >= inputSize) {
-                return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, oldHufTable, 0);
+                return compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
             }
         }
 
@@ -132,22 +121,21 @@ public class HuffmanCompressor
         if (context.repeat != CompressedBlockState.RepeatMode.REPEAT_NONE) {
             context.repeat = CompressedBlockState.RepeatMode.REPEAT_NONE;
         }
-        if (oldHufTable != null) {
-            oldHufTable.copyFrom(context.table); // save new table
+        if (previous != null) {
+            previous.copyFrom(context.table); // save new table
         }
 
         return compress(outputBase, outputAddress + headerSize, outputSize - headerSize, inputBase, inputAddress, inputSize, singleStream, context.table, headerSize);
     }
 
-    //    size_t HUF_writeCTable (void* dst, size_t maxDstSize, const HUF_CElt* CTable, U32 maxSymbolValue, U32 huffLog)
     private static int writeHuffmanTable(Object outputBase, long outputAddress, int outputSize, HuffmanCompressionTable table, int maxSymbolValue, int huffLog)
     {
-        byte[] bitsToWeight = new byte[HUF_TABLELOG_MAX + 1]; // precomputed conversion table
-        byte[] huffWeight = new byte[HUF_SYMBOLVALUE_MAX];
+        byte[] bitsToWeight = new byte[MAX_TABLE_LOG + 1]; // precomputed conversion table
+        byte[] huffWeight = new byte[MAX_SYMBOL];
 
         long output = outputAddress;
 
-        verify(maxSymbolValue <= HUF_SYMBOLVALUE_MAX, "Max symbol too large");
+        verify(maxSymbolValue <= MAX_SYMBOL, "Max symbol too large");
 
         // convert to weight 
         bitsToWeight[0] = 0;
@@ -182,14 +170,15 @@ public class HuffmanCompressor
 
     private static boolean isTableValid(HuffmanCompressionTable table, int[] counts, int maxSymbol)
     {
-        boolean bad = false;
         for (int symbol = 0; symbol <= maxSymbol; ++symbol) {
-            bad |= (counts[symbol] != 0) & (table.numberOfBits[symbol] == 0);
+            if (counts[symbol] != 0 && table.numberOfBits[symbol] == 0) {
+                return false;
+            }
         }
-        return !bad;
+        return true;
     }
 
-    public static int optimalTableLog(int maxTableLog, int srcSize, int maxSymbolValue)
+    private static int optimalTableLog(int maxTableLog, int srcSize, int maxSymbolValue)
     {
         // TODO: same as FSE.optimalTableLog but with "- 1" instead of "- 2" in maxBitsSrc
         if (srcSize <= 1) {
@@ -215,8 +204,8 @@ public class HuffmanCompressor
             tableLog = MIN_TABLE_LOG;
         }
 
-        if (tableLog > MAX_TABLE_LOG) {
-            tableLog = MAX_TABLE_LOG;
+        if (tableLog > FiniteStateEntropy.MAX_TABLE_LOG) {
+            tableLog = FiniteStateEntropy.MAX_TABLE_LOG;
         }
 
         return tableLog;
@@ -224,15 +213,15 @@ public class HuffmanCompressor
 
     private static final int STARTNODE = MAX_SYMBOL_COUNT;
 
-    private static int buildCompressionTable(HuffmanCompressionTable table, int[] counts, int maxSymbolValue, int maxNbBits, HuffmanCompressionContext.NodeTable nodeTable)
+    private static int buildCompressionTable(HuffmanCompressionTable table, int[] counts, int maxSymbolValue, int maxNumberOfBits, NodeTable nodeTable)
     {
         int offset = 1; // TODO to simulate "huffNode" in the native code
 
-        if (maxNbBits == 0) {
-            maxNbBits = HUF_TABLELOG_DEFAULT;
+        if (maxNumberOfBits == 0) { // TODO: necessary?
+            maxNumberOfBits = HUF_TABLELOG_DEFAULT;
         }
 
-        verify(maxSymbolValue <= HUF_SYMBOLVALUE_MAX, "Max symbol value too large");
+        verify(maxSymbolValue <= MAX_SYMBOL, "Max symbol value too large");
 
         nodeTable.reset();
 
@@ -287,7 +276,7 @@ public class HuffmanCompressor
         }
 
         // enforce maxTableLog
-        maxNbBits = setMaxHeight(nodeTable, offset, nonNullRank, maxNbBits);
+        maxNumberOfBits = setMaxHeight(nodeTable, offset, nonNullRank, maxNumberOfBits);
 
         DebugLog.print("Huffman node table -- after max height enforcement");
         for (int i = 0; i < nodeTable.count.length; i++) {
@@ -295,15 +284,15 @@ public class HuffmanCompressor
         }
 
         // fill result into tree (val, nbBits)
-        short[] nbPerRank = new short[HUF_TABLELOG_MAX + 1];   // TODO allocate in context and reuse
-        short[] valPerRank = new short[HUF_TABLELOG_MAX + 1];
-        verify(maxNbBits <= HUF_TABLELOG_MAX, "Max number of bits larger than max table size"); // TODO: error message  // check fit into table
+        short[] nbPerRank = new short[MAX_TABLE_LOG + 1];   // TODO allocate in context and reuse
+        short[] valPerRank = new short[MAX_TABLE_LOG + 1];
+        verify(maxNumberOfBits <= MAX_TABLE_LOG, "Max number of bits larger than max table size"); // TODO: error message  // check fit into table
         for (int n = 0; n <= nonNullRank; n++) {
             nbPerRank[nodeTable.numberOfBits[n + offset]]++;
         }
         // determine stating value per rank
         short min = 0;
-        for (int n = maxNbBits; n > 0; n--) {
+        for (int n = maxNumberOfBits; n > 0; n--) {
             valPerRank[n] = min; // get starting value within each rank
             min += nbPerRank[n];
             min >>>= 1;
@@ -321,87 +310,12 @@ public class HuffmanCompressor
             DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
         }
         
-        return maxNbBits;
+        return maxNumberOfBits;
     }
-
-//    /** HUF_buildCTable_wksp() :
-//     *  Same as HUF_buildCTable(), but using externally allocated scratch buffer.
-//     *  `workSpace` must be aligned on 4-bytes boundaries, and be at least as large as a table of HUF_CTABLE_WORKSPACE_SIZE_U32 unsigned.
-//     */
-//    #define STARTNODE (HUF_SYMBOLVALUE_MAX+1)
-//    size_t HUF_buildCTable_wksp (HUF_CElt* tree, const U32* count, U32 maxSymbolValue, U32 maxNbBits, void* workSpace, size_t wkspSize)
-//    {
-//        nodeElt* const huffNode0 = (nodeElt*)workSpace;
-//        nodeElt* const huffNode = huffNode0+1;
-//        U32 n, nonNullRank;
-//        int lowS, lowN;
-//        U16 nodeNb = STARTNODE;
-//        U32 nodeRoot;
-//
-//        /* safety checks */
-//        if (((size_t)workSpace & 3) != 0) return ERROR(GENERIC);  /* must be aligned on 4-bytes boundaries */
-//        if (wkspSize < sizeof(huffNodeTable)) return ERROR(workSpace_tooSmall);
-//        if (maxNbBits == 0) maxNbBits = HUF_TABLELOG_DEFAULT;
-//        if (maxSymbolValue > HUF_SYMBOLVALUE_MAX) return ERROR(maxSymbolValue_tooLarge);
-//        memset(huffNode0, 0, sizeof(huffNodeTable));
-//
-//        /* sort, decreasing order */
-//        HUF_sort(huffNode, count, maxSymbolValue);
-//
-//        /* init for parents */
-//        nonNullRank = maxSymbolValue;
-//        while(huffNode[nonNullRank].count == 0) nonNullRank--;
-//        lowS = nonNullRank; nodeRoot = nodeNb + lowS - 1; lowN = nodeNb;
-//        huffNode[nodeNb].count = huffNode[lowS].count + huffNode[lowS-1].count;
-//        huffNode[lowS].parent = huffNode[lowS-1].parent = nodeNb;
-//        nodeNb++; lowS-=2;
-//        for (n=nodeNb; n<=nodeRoot; n++) huffNode[n].count = (U32)(1U<<30);
-//        huffNode0[0].count = (U32)(1U<<31);  /* fake entry, strong barrier */
-//
-//        /* create parents */
-//        while (nodeNb <= nodeRoot) {
-//            U32 n1 = (huffNode[lowS].count < huffNode[lowN].count) ? lowS-- : lowN++;
-//            U32 n2 = (huffNode[lowS].count < huffNode[lowN].count) ? lowS-- : lowN++;
-//            huffNode[nodeNb].count = huffNode[n1].count + huffNode[n2].count;
-//            huffNode[n1].parent = huffNode[n2].parent = nodeNb;
-//            nodeNb++;
-//        }
-//
-//        /* distribute weights (unlimited tree height) */
-//        huffNode[nodeRoot].nbBits = 0;
-//        for (n=nodeRoot-1; n>=STARTNODE; n--)
-//            huffNode[n].nbBits = huffNode[ huffNode[n].parent ].nbBits + 1;
-//        for (n=0; n<=nonNullRank; n++)
-//            huffNode[n].nbBits = huffNode[ huffNode[n].parent ].nbBits + 1;
-//
-//        /* enforce maxTableLog */
-//        maxNbBits = HUF_setMaxHeight(huffNode, nonNullRank, maxNbBits);
-//
-//        /* fill result into tree (val, nbBits) */
-//        {   U16 nbPerRank[HUF_TABLELOG_MAX+1] = {0};
-//            U16 valPerRank[HUF_TABLELOG_MAX+1] = {0};
-//            if (maxNbBits > HUF_TABLELOG_MAX) return ERROR(GENERIC);   /* check fit into table */
-//            for (n=0; n<=nonNullRank; n++)
-//                nbPerRank[huffNode[n].nbBits]++;
-//            /* determine stating value per rank */
-//            {   U16 min = 0;
-//                for (n=maxNbBits; n>0; n--) {
-//                    valPerRank[n] = min;      /* get starting value within each rank */
-//                    min += nbPerRank[n];
-//                    min >>= 1;
-//                }   }
-//            for (n=0; n<=maxSymbolValue; n++)
-//                tree[huffNode[n].byte].nbBits = huffNode[n].nbBits;   /* push nbBits per symbol, symbol order */
-//            for (n=0; n<=maxSymbolValue; n++)
-//                tree[n].val = valPerRank[tree[n].nbBits]++;   /* assign value within rank, symbol order */
-//        }
-//
-//        return maxNbBits;
-//    }
 
     // TODO: native code passes nodeTable[1] as the base pointer for operating here. We simulate that by passing an "offset". Figure out why it's needed and
     // come up with a better way
-    private static void sort(HuffmanCompressionContext.NodeTable nodeTable, int offset, int[] counts, int maxSymbolValue)
+    private static void sort(NodeTable nodeTable, int offset, int[] counts, int maxSymbolValue)
     {
         // TODO: allocate in context and reuse
         int[] rankBase = new int[32];
@@ -435,33 +349,8 @@ public class HuffmanCompressor
         }
     }
 
-//    static void HUF_sort(nodeElt* huffNode, const U32* count, U32 maxSymbolValue)
-//    {
-//        rankPos rank[32];
-//        U32 n;
-//
-//        memset(rank, 0, sizeof(rank));
-//        for (n=0; n<=maxSymbolValue; n++) {
-//            U32 r = BIT_highbit32(count[n] + 1);
-//            rank[r].base ++;
-//        }
-//        for (n=30; n>0; n--) rank[n-1].base += rank[n].base;
-//        for (n=0; n<32; n++) rank[n].current = rank[n].base;
-//        for (n=0; n<=maxSymbolValue; n++) {
-//            U32 const c = count[n];
-//            U32 const r = BIT_highbit32(c+1) + 1;
-//            U32 pos = rank[r].current++;
-//            while ((pos > rank[r].base) && (c > huffNode[pos-1].count)) {
-//                huffNode[pos] = huffNode[pos-1];
-//                pos--;
-//            }
-//            huffNode[pos].count = c;
-//            huffNode[pos].byte  = (BYTE)n;
-//        }
-//    }
-
     // http://fastcompression.blogspot.com/2015/07/huffman-revisited-part-3-depth-limited.html
-    private static int setMaxHeight(HuffmanCompressionContext.NodeTable nodeTable, int offset, int lastNonNull, int maxNbBits)
+    private static int setMaxHeight(NodeTable nodeTable, int offset, int lastNonNull, int maxNbBits)
     {
         int largestBits = nodeTable.numberOfBits[lastNonNull + offset];
 
@@ -489,7 +378,7 @@ public class HuffmanCompressor
 
         // repay normalized cost
         int noSymbol = 0xF0F0F0F0;
-        int[] rankLast = new int[HUF_TABLELOG_MAX + 2];
+        int[] rankLast = new int[MAX_TABLE_LOG + 2];
 
         Arrays.fill(rankLast, noSymbol);
 
@@ -523,7 +412,7 @@ public class HuffmanCompressor
 
             // only triggered when no more rank 1 symbol left => find closest one (note : there is necessarily at least one !)
             // HUF_MAX_TABLELOG test just to please gcc 5+; but it should not be necessary
-            while ((nBitsToDecrease <= HUF_TABLELOG_MAX) && (rankLast[nBitsToDecrease] == noSymbol)) {
+            while ((nBitsToDecrease <= MAX_TABLE_LOG) && (rankLast[nBitsToDecrease] == noSymbol)) {
                 nBitsToDecrease++;
             }
             totalCost -= 1 << (nBitsToDecrease - 1);
@@ -560,89 +449,6 @@ public class HuffmanCompressor
         return maxNbBits;
     }
 
-//    static U32 HUF_setMaxHeight(nodeElt* huffNode, U32 lastNonNull, U32 maxNbBits)
-//    {
-//        const U32 largestBits = huffNode[lastNonNull].nbBits;
-//        if (largestBits <= maxNbBits) return largestBits;   /* early exit : no elt > maxNbBits */
-//
-//        /* there are several too large elements (at least >= 2) */
-//            int totalCost = 0;
-//            const U32 baseCost = 1 << (largestBits - maxNbBits);
-//            U32 n = lastNonNull;
-//
-//            while (huffNode[n].nbBits > maxNbBits) {
-//                totalCost += baseCost - (1 << (largestBits - huffNode[n].nbBits));
-//                huffNode[n].nbBits = (BYTE)maxNbBits;
-//                n--;
-//            }  /* n stops at huffNode[n].nbBits <= maxNbBits */
-
-//            while (huffNode[n].nbBits == maxNbBits) {
-//                n--;   /* n end at index of smallest symbol using < maxNbBits */
-//            }
-//
-//            /* renorm totalCost */
-//            totalCost >>= (largestBits - maxNbBits);  /* note : totalCost is necessarily a multiple of baseCost */
-//
-//            /* repay normalized cost */
-//            {
-//                U32 const noSymbol = 0xF0F0F0F0;
-//                U32 rankLast[HUF_TABLELOG_MAX+2];
-//                int pos;
-//
-//                /* Get pos of last (smallest) symbol per rank */
-//                memset(rankLast, 0xF0, sizeof(rankLast));
-//                {
-//                    U32 currentNbBits = maxNbBits;
-//                    for (pos=n ; pos >= 0; pos--) {
-//                        if (huffNode[pos].nbBits >= currentNbBits) continue;
-//                        currentNbBits = huffNode[pos].nbBits;   /* < maxNbBits */
-//                        rankLast[maxNbBits-currentNbBits] = pos;
-//                    }
-//                }
-//
-//                while (totalCost > 0) {
-//                    U32 nBitsToDecrease = BIT_highbit32(totalCost) + 1;
-//                    for ( ; nBitsToDecrease > 1; nBitsToDecrease--) {
-//                        U32 highPos = rankLast[nBitsToDecrease];
-//                        U32 lowPos = rankLast[nBitsToDecrease-1];
-//                        if (highPos == noSymbol) continue;
-//                        if (lowPos == noSymbol) break;
-//                        {   U32 const highTotal = huffNode[highPos].count;
-//                            U32 const lowTotal = 2 * huffNode[lowPos].count;
-//                            if (highTotal <= lowTotal) break;
-//                        }   }
-//                    /* only triggered when no more rank 1 symbol left => find closest one (note : there is necessarily at least one !) */
-//                    /* HUF_MAX_TABLELOG test just to please gcc 5+; but it should not be necessary */
-//                    while ((nBitsToDecrease<=HUF_TABLELOG_MAX) && (rankLast[nBitsToDecrease] == noSymbol))
-//                        nBitsToDecrease ++;
-//                    totalCost -= 1 << (nBitsToDecrease-1);
-//                    if (rankLast[nBitsToDecrease-1] == noSymbol)
-//                        rankLast[nBitsToDecrease-1] = rankLast[nBitsToDecrease];   /* this rank is no longer empty */
-//                    huffNode[rankLast[nBitsToDecrease]].nbBits ++;
-//                    if (rankLast[nBitsToDecrease] == 0)    /* special case, reached largest symbol */
-//                        rankLast[nBitsToDecrease] = noSymbol;
-//                    else {
-//                        rankLast[nBitsToDecrease]--;
-//                        if (huffNode[rankLast[nBitsToDecrease]].nbBits != maxNbBits-nBitsToDecrease)
-//                            rankLast[nBitsToDecrease] = noSymbol;   /* this rank is now empty */
-//                    }   }   /* while (totalCost > 0) */
-//
-//                while (totalCost < 0) {  /* Sometimes, cost correction overshoot */
-//                    if (rankLast[1] == noSymbol) {  /* special case : no rank 1 symbol (using maxNbBits-1); let's create one from largest rank 0 (using maxNbBits) */
-//                        while (huffNode[n].nbBits == maxNbBits) n--;
-//                        huffNode[n+1].nbBits--;
-//                        rankLast[1] = n+1;
-//                        totalCost++;
-//                        continue;
-//                    }
-//                    huffNode[ rankLast[1] + 1 ].nbBits--;
-//                    rankLast[1]++;
-//                    totalCost ++;
-//                }   }
-//
-//        return maxNbBits;
-//    }
-
     private static int compress(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, boolean singleStream, HuffmanCompressionTable table, int headerSize)
     {
         int compressedSize;
@@ -665,8 +471,6 @@ public class HuffmanCompressor
         return compressedSize + headerSize;
     }
 
-
-//    static size_t HUF_compress4X_usingCTable_internal(void* dst, size_t dstSize, const void* src, size_t srcSize, const HUF_CElt* CTable, int bmi2)
     private static int compress4streams(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, HuffmanCompressionTable table)
     {
         long input = inputAddress;
@@ -676,11 +480,11 @@ public class HuffmanCompressor
 
         int segmentSize = (inputSize + 3) / 4;
 
-        if (outputSize < 6 + 1 + 1 + 1 + 8) {
+        if (outputSize < 6 + 1 + 1 + 1 + 8) { // TODO: what does each number represent?
             return 0; // minimum space to compress successfully
         }
 
-        if (inputSize < 12) {
+        if (inputSize < 12) { // TODO: what's 12?
             return 0;  // no saving possible: input too small
         }
 
@@ -739,20 +543,20 @@ public class HuffmanCompressor
         switch (inputSize & 3) {
             case 3:
                 encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n + 2) & 0xFF, table);
-                if (SIZE_OF_LONG * 8 < HUF_TABLELOG_MAX * 4 + 7) {
+                if (SIZE_OF_LONG * 8 < MAX_TABLE_LOG * 4 + 7) {
                     bitstream.flush();
                 }
-                /* fall-through */
+                // fall-through
             case 2:
                 encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n + 1) & 0xFF, table);
-                if (SIZE_OF_LONG * 8 < HUF_TABLELOG_MAX * 2 + 7) {
+                if (SIZE_OF_LONG * 8 < MAX_TABLE_LOG * 2 + 7) {
                     bitstream.flush();
                 }
-                /* fall-through */
+                // fall-through
             case 1:
                 encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n + 0) & 0xFF, table);
                 bitstream.flush();
-                /* fall-through */
+                // fall-through
             case 0: /* fall-through */
             default:
                 break;
@@ -760,15 +564,15 @@ public class HuffmanCompressor
 
         for (; n > 0; n -= 4) {  // note : n & 3==0 at this stage
             encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n - 1) & 0xFF, table);
-            if (SIZE_OF_LONG * 8 < HUF_TABLELOG_MAX * 2 + 7) {
+            if (SIZE_OF_LONG * 8 < MAX_TABLE_LOG * 2 + 7) {
                 bitstream.flush();
             }
             encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n - 2) & 0xFF, table);
-            if (SIZE_OF_LONG * 8 < HUF_TABLELOG_MAX * 4 + 7) {
+            if (SIZE_OF_LONG * 8 < MAX_TABLE_LOG * 4 + 7) {
                 bitstream.flush();
             }
             encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n - 3) & 0xFF, table);
-            if (SIZE_OF_LONG * 8 < HUF_TABLELOG_MAX * 2 + 7) {
+            if (SIZE_OF_LONG * 8 < MAX_TABLE_LOG * 2 + 7) {
                 bitstream.flush();
             }
             encodeSymbol(bitstream, UNSAFE.getByte(inputBase, input + n - 4) & 0xFF, table);
@@ -799,10 +603,10 @@ public class HuffmanCompressor
         long output = outputAddress;
         long outputLimit = outputAddress + outputSize;
 
-        int maxSymbolValue = HUF_TABLELOG_MAX;
+        int maxSymbolValue = MAX_TABLE_LOG;
         int tableLog = MAX_FSE_TABLELOG_FOR_HUFF_HEADER;
 
-        short[] normalizedCounts = new short[HUF_TABLELOG_MAX + 1];
+        short[] normalizedCounts = new short[MAX_TABLE_LOG + 1];
 
         // init conditions
         if (wtSize <= 1) {
@@ -831,7 +635,7 @@ public class HuffmanCompressor
         output += headerSize;
 
         // Compress
-        FseCompressionTable compressionTable = new FseCompressionTable(MAX_FSE_TABLELOG_FOR_HUFF_HEADER, HUF_TABLELOG_MAX); // TODO: pre-allocate
+        FseCompressionTable compressionTable = new FseCompressionTable(MAX_FSE_TABLELOG_FOR_HUFF_HEADER, MAX_TABLE_LOG); // TODO: pre-allocate
         FiniteStateEntropy.buildCompressionTable(compressionTable, normalizedCounts, maxSymbolValue, tableLog);
         int compressedSize = FseCompressor.compress(outputBase, output, (int) (outputLimit - output), weights, ARRAY_BYTE_BASE_OFFSET, wtSize, compressionTable);
         if (compressedSize == 0) {
@@ -841,16 +645,6 @@ public class HuffmanCompressor
 
         return (int) (output - outputAddress);
     }
-
-//    static size_t HUF_estimateCompressedSize(HUF_CElt* CTable, const unsigned* count, unsigned maxSymbolValue)
-//    {
-//        size_t nbBits = 0;
-//        int s;
-//        for (s = 0; s <= (int) maxSymbolValue; ++s) {
-//            nbBits += CTable[s].nbBits * count[s];
-//        }
-//        return nbBits >> 3;
-//    }
 
     private static int estimateCompressedSize(HuffmanCompressionTable table, int[] counts, int maxSymbolValue)
     {
@@ -864,50 +658,50 @@ public class HuffmanCompressor
         return numberOfBits >>> 3; // convert to bytes
     }
 
-    public static void main(String[] args)
-    {
-//        HuffmanCompressionTable table = new HuffmanCompressionTable();
-//        int[] counts = new int[256];
-//        for (int i = 0; i < counts.length; i++) {
-//            counts[i] = i;
+//    public static void main(String[] args)
+//    {
+////        HuffmanCompressionTable table = new HuffmanCompressionTable();
+////        int[] counts = new int[256];
+////        for (int i = 0; i < counts.length; i++) {
+////            counts[i] = i;
+////        }
+////
+////        HuffmanCompressionContext.NodeTable nodeTable = new HuffmanCompressionContext.NodeTable(HUF_CTABLE_WORKSPACE_SIZE_U32);
+//////        HuffmanCompressor.sort(nodeTable, 1, counts, counts.length - 1);
+////        HuffmanCompressor.buildCompressionTable(table, counts, counts.length - 1, HUF_TABLELOG_MAX, new HuffmanCompressionContext.NodeTable(HUF_CTABLE_WORKSPACE_SIZE_U32));
+//
+//        byte[] original = new byte[351];
+//        int i = 0;
+//        int repetitions = 1;
+//        for (int symbol = 'a'; symbol <= 'z'; symbol++) {
+//            for (int j = 0; j < repetitions; j++) {
+//                original[i] = (byte) symbol;
+//                i++;
+//            }
+//            repetitions++;
 //        }
 //
-//        HuffmanCompressionContext.NodeTable nodeTable = new HuffmanCompressionContext.NodeTable(HUF_CTABLE_WORKSPACE_SIZE_U32);
-////        HuffmanCompressor.sort(nodeTable, 1, counts, counts.length - 1);
-//        HuffmanCompressor.buildCompressionTable(table, counts, counts.length - 1, HUF_TABLELOG_MAX, new HuffmanCompressionContext.NodeTable(HUF_CTABLE_WORKSPACE_SIZE_U32));
-
-        byte[] original = new byte[351];
-        int i = 0;
-        int repetitions = 1;
-        for (int symbol = 'a'; symbol <= 'z'; symbol++) {
-            for (int j = 0; j < repetitions; j++) {
-                original[i] = (byte) symbol;
-                i++;
-            }
-            repetitions++;
-        }
-
-        byte[] compressed = new byte[2000];
-
-        HuffmanCompressionContext context = new HuffmanCompressionContext();
-        int compressedSize = HuffmanCompressor.compress(compressed, 16, compressed.length, original, 16, original.length, 255, 11, true, context, null, false);
-        System.out.println(compressedSize);
-
-        byte[] decompressed = new byte[500];
-        Huffman huffman = new Huffman();
-
-        long input = 16;
-        int headerSize = huffman.readTable(compressed, input, compressedSize);
-        input += headerSize;
-        System.out.println(headerSize);
-        huffman.decodeSingleStream(compressed, input, 16 + compressedSize, decompressed, 16, 16 + original.length);
-
-        for (int x = 0; i < original.length; x++) {
-            if (original[x] != decompressed[x]) {
-                throw new RuntimeException();
-            }
-        }
-
-        System.out.println();
-    }
+//        byte[] compressed = new byte[2000];
+//
+//        HuffmanCompressionContext context = new HuffmanCompressionContext();
+//        int compressedSize = HuffmanCompressor.compress(compressed, 16, compressed.length, original, 16, original.length, 255, 11, true, context, null, false);
+//        System.out.println(compressedSize);
+//
+//        byte[] decompressed = new byte[500];
+//        Huffman huffman = new Huffman();
+//
+//        long input = 16;
+//        int headerSize = huffman.readTable(compressed, input, compressedSize);
+//        input += headerSize;
+//        System.out.println(headerSize);
+//        huffman.decodeSingleStream(compressed, input, 16 + compressedSize, decompressed, 16, 16 + original.length);
+//
+//        for (int x = 0; i < original.length; x++) {
+//            if (original[x] != decompressed[x]) {
+//                throw new RuntimeException();
+//            }
+//        }
+//
+//        System.out.println();
+//    }
 }

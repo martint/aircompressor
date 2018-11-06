@@ -80,7 +80,7 @@ class SequenceCompressor
     private static final int MATCH_LENGTH_DEFAULT_NORM_LOG = 6;
     private static final int OFFSET_DEFAULT_NORM_LOG = 5;
 
-    public static int compress(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, final long outputAddress, int outputSize)
+    public static int compressSequences(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, final long outputAddress, int outputSize)
     {
         long outputLimit = outputAddress + outputSize;
 
@@ -88,12 +88,6 @@ class SequenceCompressor
 
         long output = outputAddress;
         int sequenceCount = sequences.sequenceCount;
-
-        /* Compress literals */
-        byte[] literals = sequences.literalsBuffer;
-        int litSize = sequences.literalsLength;
-
-        output += compressLiterals(previousEntropy.huffman, nextEntropy.huffman, parameters, outputBase, output, outputSize, literals, litSize);
 
         /* Sequences Header */
         verify(outputLimit - output > 3 /*max sequenceCount Size*/ + 1 /*seqHead*/, "Output buffer too small");
@@ -416,9 +410,9 @@ class SequenceCompressor
         return streamSize;
     }
 
-    private static int compressLiterals(
-            CompressedBlockState.HuffmanTable previousHuffman,
-            CompressedBlockState.HuffmanTable nextHuffman,
+    public static int compressLiterals(
+            CompressedBlockState.RepeatMode repeat,
+            CompressedBlockState.HuffmanContext huffmanContext,
             CompressionParameters parameters,
             Object outputBase,
             long outputAddress,
@@ -426,36 +420,29 @@ class SequenceCompressor
             byte[] literals,
             int literalsSize)
     {
-        // Prepare nextEntropy assuming reusing the existing table
-        nextHuffman.copy(previousHuffman);
-
         // TODO: move this to Strategy
         boolean bypassCompression = (parameters.getStrategy() == CompressionParameters.Strategy.FAST) && (parameters.getTargetLength() > 0);
         if (bypassCompression) {
             return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
         }
 
-        // small ? don't even attempt compression (speed opt)
+        // small? don't even attempt compression (speed optimization)
         int COMPRESS_LITERALS_SIZE_MIN = 63;
-        int minLitSize = (previousHuffman.repeatMode == REPEAT_VALID) ? 6 : COMPRESS_LITERALS_SIZE_MIN;
+        int minLitSize = (repeat == REPEAT_VALID) ? 6 : COMPRESS_LITERALS_SIZE_MIN;
         
         if (literalsSize <= minLitSize) {
             return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
         }
 
-        int minGain = calculateMinimumGain(literalsSize, parameters.getStrategy());
+        int minimumGain = calculateMinimumGain(literalsSize, parameters.getStrategy());
         int headerSize = 3 + (literalsSize >= 1024 ? 1 : 0) + (literalsSize >= 16384 ? 1 : 0);
-        boolean singleStream = literalsSize < 256;
 
         verify(headerSize + 1 <= outputSize, "Output buffer too small");
 
-        CompressedBlockState.RepeatMode repeat = previousHuffman.repeatMode;
+        boolean singleStream = literalsSize < 256 || (repeat == REPEAT_VALID && headerSize == 3);
 
         // TODO: move to Strategy
         boolean preferRepeat = parameters.getStrategy().ordinal() < CompressionParameters.Strategy.LAZY.ordinal() && literalsSize <= 1024;
-        if (repeat == REPEAT_VALID && headerSize == 3) {
-            singleStream = true;
-        }
 
         // TODO: clean up repeat. It's in CompressedBlockState and in HuffmanCompressionContext). It's used as an in/out arg for HuffmanCompressor.compress
         // TODO: untangle the decision of whether to reuse previous table or not between this code and HuffmanCompressor.compress
@@ -472,7 +459,7 @@ class SequenceCompressor
                 11,
                 singleStream,
                 context,
-                nextHuffman.table,
+                huffmanContext.table,
                 preferRepeat);
 
         repeat = context.repeat;
@@ -482,19 +469,17 @@ class SequenceCompressor
             encodingType = SEQUENCE_ENCODING_REPEAT;
         }
 
-        if (compressedSize == 0 || compressedSize >= literalsSize - minGain) {
-            nextHuffman.copy(previousHuffman);
+        if (compressedSize == 0 || compressedSize >= literalsSize - minimumGain) {
             return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
         }
 
         if (compressedSize == 1) {
-            nextHuffman.copy(previousHuffman);
             return rleLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
         }
 
         if (encodingType == SEQUENCE_ENCODING_COMPRESSED) {
             // using a newly constructed table
-            nextHuffman.repeatMode = REPEAT_CHECK;
+            huffmanContext.repeat = REPEAT_CHECK;
         }
 
         // Build header
@@ -515,7 +500,7 @@ class SequenceCompressor
                 UNSAFE.putByte(outputBase, outputAddress + SIZE_OF_INT, (byte) (compressedSize >>> 10));
                 break;
             }
-            default:  /* not possible : lhSize is {3,4,5} */
+            default:  // not possible : headerSize is {3,4,5} 
                 throw new IllegalStateException();
         }
 
@@ -718,78 +703,4 @@ class SequenceCompressor
 
         throw new UnsupportedOperationException("not yet implemented");
     }
-
-    public int[] toInt(short[] elements)
-    {
-        int[] result = new int[elements.length];
-        for (int i = 0; i < elements.length; i++) {
-            result[i] = elements[i];
-        }
-        return result;
-    }
-
-    //    size_t FSE_buildCTable_wksp(FSE_CTable* ct, const short* normalizedCounter, unsigned maxSymbolValue, unsigned tableLog, void* workSpace, size_t wkspSize)
-//    public static FseCompressionTable buildFseTable(short[] normalizedCounts, int maxSymbolValue, int tableLog)
-
-    //    public static void main1(String[] args)
-//    {
-//        FseCompressionTable table = new FseCompressionTable(LITERALS_LENGTH_DEFAULT_NORM_LOG, MAX_LITERALS_LENGTH_SYMBOL);
-//        buildCompressionTable(table, LITERALS_LENGTH_DEFAULT_NORMS, MAX_LITERALS_LENGTH_SYMBOL, LITERALS_LENGTH_DEFAULT_NORM_LOG);
-//
-//        byte[] original = new byte[100];
-//        for (int i = 0; i < original.length; i++) {
-//            original[i] = (byte) (i % 10);
-//        }
-//
-//        byte[] compressed = new byte[100];
-//        byte[] decompressed = new byte[100];
-//
-//        int compressedSize = FseCompressor.compress(compressed, 16, compressed.length, original, 16, original.length, table);
-//        int decompressedSize = FiniteStateEntropy.decompress(DEFAULT_LITERALS_LENGTH_TABLE, compressed, 16, 16 + compressedSize, decompressed);
-//
-//        System.out.println(compressedSize);
-//        System.out.println(decompressedSize);
-//
-//        for (int i = 0; i < decompressedSize; i++) {
-//            if (original[i] != decompressed[i]) {
-//                throw new RuntimeException();
-//            }
-//        }
-//    }
-
-//    public static void main(String[] args)
-//    {
-//        SequenceCompressor compressor = new SequenceCompressor();
-//
-//        Random random = new Random();
-//
-//        int maxSymbol = 255;
-//
-//        int total = 0;
-//        int[] counts = new int[maxSymbol + 1];
-//        for (int i = 0; i < counts.length; i++) {
-////            counts[i] = Math.max(0, (int) (random.nextGaussian() * 1000));
-//            counts[i] = i;
-//            total += counts[i];
-//        }
-//
-//        short[] normalizedCounts = new short[counts.length];
-//
-//        int tableLog = FiniteStateEntropy.MAX_TABLE_LOG;
-//        compressor.normalizeCounts(normalizedCounts, tableLog, counts, total, maxSymbol);
-//
-//        int sum = 0;
-//        for (int i = 0; i <= maxSymbol; i++) {
-//            sum += Math.abs(normalizedCounts[i]);
-//        }
-//        System.out.println("total normalized: " + sum);
-//        if (sum != 1 << tableLog) {
-//            throw new IllegalStateException();
-//        }
-//
-//        byte[] buffer = new byte[1000];
-//        int size = compressor.writeNormalizedCounts(buffer, 16, buffer.length, normalizedCounts, maxSymbol, tableLog);
-//
-//        System.out.println(size);
-//    }
 }

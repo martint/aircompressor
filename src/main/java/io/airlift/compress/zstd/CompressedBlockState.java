@@ -26,7 +26,7 @@ class CompressedBlockState
 
     public static class Entropy
     {
-        HuffmanTable huffman = new HuffmanTable(new HuffmanCompressionTable());
+        HuffmanContext huffman = new HuffmanContext(new HuffmanCompressionTable());
 
         FseTable literalLengths = new FseTable(new FseCompressionTable(Constants.LITERALS_LENGTH_FSE_LOG, Constants.MAX_LITERALS_LENGTH_SYMBOL));
         FseTable offsetCodes = new FseTable(new FseCompressionTable(Constants.OFFSET_CODES_FSE_LOG, Constants.MAX_OFFSET_CODE_SYMBOL));
@@ -62,21 +62,15 @@ class CompressedBlockState
         }
     }
 
-    public static class HuffmanTable
+    public static class HuffmanContext
     {
-        public RepeatMode repeatMode;
+        public RepeatMode repeat;
         public HuffmanCompressionTable table;
 
-        public HuffmanTable(HuffmanCompressionTable table)
+        public HuffmanContext(HuffmanCompressionTable table)
         {
-            this.repeatMode = RepeatMode.REPEAT_NONE;
+            this.repeat = RepeatMode.REPEAT_NONE;
             this.table = table;
         }
-
-        public void copy(HuffmanTable other)
-        {
-            table.copyFrom(other.table);
-        }
-
     }
 }
