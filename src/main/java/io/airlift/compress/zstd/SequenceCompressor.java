@@ -28,6 +28,7 @@ import static io.airlift.compress.zstd.Constants.SEQUENCE_ENCODING_RLE;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.FiniteStateEntropy.optimalTableLog;
+import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.put24BitLittleEndian;
 import static io.airlift.compress.zstd.Util.verify;
@@ -41,7 +42,7 @@ class SequenceCompressor
     private static final int MAX_MATCH_LENGTH_SYMBOL = 52;
     private static final int MAX_SEQUENCES = Math.max(MAX_LITERALS_LENGTH_SYMBOL, MAX_MATCH_LENGTH_SYMBOL);
 
-    private static final int LONGNBSEQ = 0x7F00;
+    private static final int LONG_NUMBER_OF_SEQUENCES = 0x7F00;
 
     private static final short[] LITERALS_LENGTH_DEFAULT_NORMS = {4, 3, 2, 2, 2, 2, 2, 2,
                                                                   2, 2, 2, 2, 2, 1, 1, 1,
@@ -49,11 +50,11 @@ class SequenceCompressor
                                                                   2, 3, 2, 1, 1, 1, 1, 1,
                                                                   -1, -1, -1, -1};
 
-    private static final int[] LL_bits = {0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          1, 1, 1, 1, 2, 2, 3, 3,
-                                          4, 6, 7, 8, 9, 10, 11, 12,
-                                          13, 14, 15, 16};
+    private static final int[] LITERALS_LENGTH_BITS = {0, 0, 0, 0, 0, 0, 0, 0,
+                                                       0, 0, 0, 0, 0, 0, 0, 0,
+                                                       1, 1, 1, 1, 2, 2, 3, 3,
+                                                       4, 6, 7, 8, 9, 10, 11, 12,
+                                                       13, 14, 15, 16};
 
     private static final short[] MATCH_LENGTH_DEFAULT_NORMS = {1, 4, 3, 2, 2, 2, 2, 2,
                                                                2, 1, 1, 1, 1, 1, 1, 1,
@@ -63,13 +64,13 @@ class SequenceCompressor
                                                                1, 1, 1, 1, 1, 1, -1, -1,
                                                                -1, -1, -1, -1, -1};
 
-    private static final int[] ML_bits = {0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          0, 0, 0, 0, 0, 0, 0, 0,
-                                          1, 1, 1, 1, 2, 2, 3, 3,
-                                          4, 4, 5, 7, 8, 9, 10, 11,
-                                          12, 13, 14, 15, 16};
+    private static final int[] MATCH_LENGTH_BITS = {0, 0, 0, 0, 0, 0, 0, 0,
+                                                    0, 0, 0, 0, 0, 0, 0, 0,
+                                                    0, 0, 0, 0, 0, 0, 0, 0,
+                                                    0, 0, 0, 0, 0, 0, 0, 0,
+                                                    1, 1, 1, 1, 2, 2, 3, 3,
+                                                    4, 4, 5, 7, 8, 9, 10, 11,
+                                                    12, 13, 14, 15, 16};
 
     private static final short[] OFFSET_DEFAULT_NORMS = {1, 1, 1, 1, 1, 1, 2, 2,
                                                          2, 1, 1, 1, 1, 1, 1, 1,
@@ -89,8 +90,8 @@ class SequenceCompressor
         long output = outputAddress;
         int sequenceCount = sequences.sequenceCount;
 
-        /* Sequences Header */
-        verify(outputLimit - output > 3 /*max sequenceCount Size*/ + 1 /*seqHead*/, "Output buffer too small");
+        // sequences Header
+        verify(outputLimit - output > 3 /*max sequenceCount Size*/ + 1 /* flags */, "Output buffer too small");
 
 //        DebugLog.print("Writing %d sequences at offset %d", sequenceCount, output);
 
@@ -98,7 +99,7 @@ class SequenceCompressor
             UNSAFE.putByte(outputBase, output, (byte) sequenceCount);
             output++;
         }
-        else if (sequenceCount < LONGNBSEQ) {
+        else if (sequenceCount < LONG_NUMBER_OF_SEQUENCES) {
             UNSAFE.putByte(outputBase, output, (byte) (sequenceCount >>> 8 | 0x80));
             UNSAFE.putByte(outputBase, output + 1, (byte) sequenceCount);
             output += SIZE_OF_SHORT;
@@ -106,7 +107,7 @@ class SequenceCompressor
         else {
             UNSAFE.putByte(outputBase, output, (byte) 0xFF);
             output++;
-            UNSAFE.putShort(outputBase, output, (short) (sequenceCount - LONGNBSEQ));
+            UNSAFE.putShort(outputBase, output, (short) (sequenceCount - LONG_NUMBER_OF_SEQUENCES));
             output += SIZE_OF_SHORT;
         }
 
@@ -116,10 +117,10 @@ class SequenceCompressor
             return (int) (output - outputAddress);
         }
 
-        /* seqHead : flags for FSE encoding type */
+        // flags for FSE encoding type
         long seqHead = output++;
 
-        /* convert length/distances into codes */
+        // convert length/distances into codes
         sequences.generateCodes();
 
         // int[] counts = new int[MAX_SEQUENCES + 1];
@@ -232,7 +233,7 @@ class SequenceCompressor
             int maxTheoreticalSymbol = MAX_MATCH_LENGTH_SYMBOL;
             FseCompressionTable next = nextEntropy.matchLengths.table;
 
-            Histogram histogram = Histogram.count(sequences.matchLengthCodes, sequenceCount, maxTheoreticalSymbol);   /* can't fail */
+            Histogram histogram = Histogram.count(sequences.matchLengthCodes, sequenceCount, maxTheoreticalSymbol);  
             int maxSymbol = histogram.maxSymbol;
             int largestCount = histogram.largestCount;
             int[] counts = histogram.counts;
@@ -328,8 +329,8 @@ class SequenceCompressor
         int stateLiteralLength = FseCompressor.initialize(literalLengthTable, llCodeTable[nbSeq - 1]);
 //        DebugLog.print("First sequence: ll state: %d, ml state: %d, off state: %d", stateLiteralLength, stateMatchLength, stateOffsetBits);
 
-        blockStream.addBits(sequences.literalLengths[nbSeq - 1], LL_bits[llCodeTable[nbSeq - 1]]);
-        blockStream.addBits(sequences.matchLengths[nbSeq - 1], ML_bits[mlCodeTable[nbSeq - 1]]);
+        blockStream.addBits(sequences.literalLengths[nbSeq - 1], LITERALS_LENGTH_BITS[llCodeTable[nbSeq - 1]]);
+        blockStream.addBits(sequences.matchLengths[nbSeq - 1], MATCH_LENGTH_BITS[mlCodeTable[nbSeq - 1]]);
         if (longOffsets) {
             // TODO
             throw new UnsupportedOperationException("not yet implemented");
@@ -352,9 +353,9 @@ class SequenceCompressor
                 byte ofCode = ofCodeTable[n];
                 byte mlCode = mlCodeTable[n];
 
-                int llBits = LL_bits[llCode];
+                int llBits = LITERALS_LENGTH_BITS[llCode];
                 int ofBits = ofCode;
-                int mlBits = ML_bits[mlCode];
+                int mlBits = MATCH_LENGTH_BITS[mlCode];
 
 //                DebugLog.print("encoding: litlen:%2d - matchlen:%2d - offCode:%7d", sequences.literalLengths[n], sequences.matchLengths[n] + MIN_MATCH, sequences.offsets[n]);
 
@@ -448,7 +449,7 @@ class SequenceCompressor
         // TODO: untangle the decision of whether to reuse previous table or not between this code and HuffmanCompressor.compress
         HuffmanCompressionContext context = new HuffmanCompressionContext();
         context.repeat = repeat;
-        int compressedSize = HuffmanCompressor.compress(
+        int compressedSize = compress(
                 outputBase,
                 outputAddress + headerSize,
                 outputSize - headerSize,
@@ -542,54 +543,125 @@ class SequenceCompressor
 
     private static int rawLiterals(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize)
     {
-// TODO: alternate implementation -- benchmark
-//        int headerSize = 1;
-//        if (inputSize > 31) {
-//            headerSize++;
-//        }
-//        if (inputSize > 4095) {
-//            headerSize++;
-//        }
-//
-//        verify(inputSize + headerSize > outputSize, inputAddress, "Output buffer too small");
-//
-//        switch (headerSize) {
-//            case 1:
-//                UNSAFE.putByte(outputBase, outputAddress, (byte) (SET_BASIC | (inputSize << 3)));
-//                break;
-//            case 2:
-//                UNSAFE.putShort(outputBase, outputAddress, (short) (SET_BASIC | (1 << 2) | (inputSize << 4)));
-//                break;
-//            case 3:
-//                UNSAFE.putInt(outputBase, outputAddress, SET_BASIC | (3 << 2) | (inputSize << 4));
-//                break;
-//            default:
-//                throw new AssertionError();
-//        }
+        int headerSize = 1;
+        if (inputSize > 31) {
+            headerSize++;
+        }
+        if (inputSize > 4095) {
+            headerSize++;
+        }
 
-        verify(outputSize >= inputSize + 1, inputAddress, "Output buffer too small");
+        verify(inputSize + headerSize <= outputSize, inputAddress, "Output buffer too small");
 
-        int headerSize;
-        if (inputSize < 32) {
-            headerSize = 1;
-            UNSAFE.putByte(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_BASIC | (inputSize << 3)));
+        switch (headerSize) {
+            case 1:
+                UNSAFE.putByte(outputBase, outputAddress, (byte) (SEQUENCE_ENCODING_BASIC | (inputSize << 3)));
+                break;
+            case 2:
+                UNSAFE.putShort(outputBase, outputAddress, (short) (SEQUENCE_ENCODING_BASIC | (1 << 2) | (inputSize << 4)));
+                break;
+            case 3:
+                UNSAFE.putInt(outputBase, outputAddress, SEQUENCE_ENCODING_BASIC | (3 << 2) | (inputSize << 4));
+                break;
+            default:
+                throw new AssertionError();
         }
-        else if (inputSize < 4096) {
-            headerSize = 2;
-            // We're guaranteed to be able to write a short because of the above check w/ inputSize between [32, 4095]
-            UNSAFE.putShort(outputBase, outputAddress, (short) (SEQUENCE_ENCODING_BASIC | (1 << 2) | (inputSize << 4)));
-        }
-        else {
-            headerSize = 3;
-            // We're guaranteed to be able to write an int because of the above check w/ inputSize >= 4096
-            UNSAFE.putInt(outputBase, outputAddress, SEQUENCE_ENCODING_BASIC | (3 << 2) | (inputSize << 4));
-        }
+
+        verify(inputSize + 1 <= outputSize, inputAddress, "Output buffer too small");
 
         UNSAFE.copyMemory(inputBase, inputAddress, outputBase, outputAddress + headerSize, inputSize);
 
 //        DebugLog.print("Writing raw literals at offset %d, size: %d", outputAddress, headerSize + inputSize);
 
         return headerSize + inputSize;
+    }
+
+    public static int compress(
+            Object outputBase,
+            long outputAddress,
+            int outputSize,
+            Object inputBase,
+            long inputAddress,
+            int inputSize,
+            int maxSymbolValue,
+            int tableLog,
+            boolean singleStream,
+            HuffmanCompressionContext context,
+            HuffmanCompressionTable previous,
+            boolean preferRepeat)
+    {
+        if (inputSize == 0) {
+            return 0; // uncompressed;
+        }
+
+        if (outputSize == 0) {
+            return 0; // cannot fit anything within output budget
+        }
+
+        verify(inputSize <= HuffmanCompressor.MAX_BLOCK_SIZE, "Input block too large");
+        verify(tableLog <= HuffmanCompressor.MAX_TABLE_LOG, "Compression table too large");
+        verify(maxSymbolValue <= MAX_SYMBOL, "Max symbol too large");
+
+        // Heuristic : If old table is valid, use it for small inputs
+        if (preferRepeat && context.repeat == REPEAT_VALID) {
+            return HuffmanCompressor.compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
+        }
+
+        Histogram histogram = Histogram.count(inputBase, inputAddress, inputSize, maxSymbolValue);
+        maxSymbolValue = histogram.maxSymbol;
+        int[] counts = histogram.counts;
+        int largestCount = histogram.largestCount;
+
+        if (largestCount == inputSize) {
+            // single symbol, RLE
+            UNSAFE.putByte(outputBase, outputAddress, UNSAFE.getByte(inputBase, inputAddress));
+            return 1;
+        }
+
+        if (largestCount <= (inputSize >>> 7) + 4) {
+            // heuristic: probably not compressible enough
+            return 0;
+        }
+
+        if (context.repeat == REPEAT_CHECK && !previous.isTableValid(counts, maxSymbolValue)) {
+            context.repeat = REPEAT_NONE;
+        }
+
+        // heuristic: use existing table for small inputs
+        if (preferRepeat && context.repeat != REPEAT_NONE) {
+            return HuffmanCompressor.compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
+        }
+
+        // build huffman tree
+        tableLog = HuffmanCompressor.optimalTableLog(tableLog, inputSize, maxSymbolValue);
+        tableLog = HuffmanCompressor.buildCompressionTable(context.table, counts, maxSymbolValue, tableLog, context.compressionTableWorkspace);
+
+        // Zero unused symbols in compression table, so we can check it for validity
+        context.table.trim(maxSymbolValue);
+
+        // Write table description header
+        int headerSize = HuffmanCompressor.writeHuffmanTable(outputBase, outputAddress, outputSize, context.table, maxSymbolValue, tableLog);
+        // Check if using previous huffman table is beneficial
+        if (context.repeat != REPEAT_NONE) {
+            int oldSize = previous.estimateCompressedSize(counts, maxSymbolValue);
+            int newSize = context.table.estimateCompressedSize(counts, maxSymbolValue);
+            if (oldSize <= headerSize + newSize || headerSize + 12 >= inputSize) {
+                return HuffmanCompressor.compress(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, singleStream, previous, 0);
+            }
+        }
+
+        // Use the new huffman table
+        if (headerSize + 12 >= inputSize) {
+            return 0;
+        }
+        if (context.repeat != REPEAT_NONE) {
+            context.repeat = REPEAT_NONE;
+        }
+        if (previous != null) {
+            previous.copyFrom(context.table); // save new table
+        }
+
+        return HuffmanCompressor.compress(outputBase, outputAddress + headerSize, outputSize - headerSize, inputBase, inputAddress, inputSize, singleStream, context.table, headerSize);
     }
 
     static class EncodingType

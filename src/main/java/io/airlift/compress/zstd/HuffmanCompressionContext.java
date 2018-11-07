@@ -15,7 +15,16 @@ package io.airlift.compress.zstd;
 
 public class HuffmanCompressionContext
 {
-    NodeTable nodeTable = new NodeTable((2 * Huffman.MAX_SYMBOL_COUNT - 1) + 1); // number of nodes in binary tree with MAX_SYMBOL_COUNT leaves + 1 for sentinel
-    HuffmanCompressionTable table = new HuffmanCompressionTable();
+    CompressionTableWorkspace compressionTableWorkspace = new CompressionTableWorkspace();
+
+    HuffmanCompressionTable table = new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT);
     CompressedBlockState.RepeatMode repeat = CompressedBlockState.RepeatMode.REPEAT_NONE;
+
+    public static class CompressionTableWorkspace
+    {
+        NodeTable nodeTable = new NodeTable((2 * Huffman.MAX_SYMBOL_COUNT - 1) + 1); // number of nodes in binary tree with MAX_SYMBOL_COUNT leaves + 1 for sentinel
+
+        short[] numberOfBitsPerRank = new short[Huffman.MAX_TABLE_LOG + 1];
+        short[] valuesPerRank = new short[Huffman.MAX_TABLE_LOG + 1];
+    }
 }

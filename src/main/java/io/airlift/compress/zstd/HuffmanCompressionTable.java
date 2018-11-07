@@ -15,13 +15,40 @@ package io.airlift.compress.zstd;
 
 import java.util.Arrays;
 
-import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL_COUNT;
-
-public class HuffmanCompressionTable
+public final class HuffmanCompressionTable
 {
-    // HUF_CElt
-    short[] values = new short[MAX_SYMBOL_COUNT];
-    byte[] numberOfBits = new byte[MAX_SYMBOL_COUNT];
+    final short[] values;
+    final byte[] numberOfBits;
+
+    public HuffmanCompressionTable(int capacity)
+    {
+        this.values = new short[capacity + 1];
+        this.numberOfBits = new byte[capacity + 1];
+    }
+
+    /**
+     * Can this table encode all symbols with non-zero count?
+     */
+    public boolean isTableValid(int[] counts, int maxSymbol)
+    {
+        for (int symbol = 0; symbol <= maxSymbol; ++symbol) {
+            if (counts[symbol] != 0 && numberOfBits[symbol] == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public int estimateCompressedSize(int[] counts, int maxSymbolValue)
+    {
+        int numberOfBits = 0;
+        for (int symbol = 0; symbol <= maxSymbolValue; symbol++) {
+            numberOfBits += this.numberOfBits[symbol] * counts[symbol];
+            DebugLog.print("symbol %d: bits=%d, count=%d, total-so-far=%d", symbol, this.numberOfBits[symbol], counts[symbol], numberOfBits);
+        }
+
+        return numberOfBits >>> 3; // convert to bytes
+    }
 
     public void trim(int maxSymbolValue)
     {
