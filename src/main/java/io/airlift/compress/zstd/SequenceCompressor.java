@@ -623,7 +623,7 @@ class SequenceCompressor
             return 0;
         }
 
-        if (context.repeat == REPEAT_CHECK && !previous.isTableValid(counts, maxSymbolValue)) {
+        if (context.repeat == REPEAT_CHECK && !previous.isValid(counts, maxSymbolValue)) {
             context.repeat = REPEAT_NONE;
         }
 

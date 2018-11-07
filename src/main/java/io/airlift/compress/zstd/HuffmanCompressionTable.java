@@ -29,7 +29,7 @@ public final class HuffmanCompressionTable
     /**
      * Can this table encode all symbols with non-zero count?
      */
-    public boolean isTableValid(int[] counts, int maxSymbol)
+    public boolean isValid(int[] counts, int maxSymbol)
     {
         for (int symbol = 0; symbol <= maxSymbol; ++symbol) {
             if (counts[symbol] != 0 && numberOfBits[symbol] == 0) {
