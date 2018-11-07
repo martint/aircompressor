@@ -639,7 +639,7 @@ public class HuffmanCompressor
         FiniteStateEntropy.buildCompressionTable(compressionTable, normalizedCounts, maxSymbolValue, tableLog);
         int compressedSize = FseCompressor.compress(outputBase, output, (int) (outputLimit - output), weights, ARRAY_BYTE_BASE_OFFSET, wtSize, compressionTable);
         if (compressedSize == 0) {
-            return 0;   // not enough space for compressed data
+            return 0; // not enough space for compressed data
         }
         output += compressedSize;
 

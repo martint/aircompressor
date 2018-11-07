@@ -203,7 +203,7 @@ class FiniteStateEntropy
         return tableLog;
     }
 
-    /* provides the minimum logSize to safely represent a distribution */
+    // provides the minimum logSize to safely represent a distribution
     public static int minTableLog(int inputSize, int maxSymbolValue)
     {
         if (inputSize <= 1) {
@@ -217,7 +217,7 @@ class FiniteStateEntropy
 
     public static int normalizeCounts(short[] normalizedCounts, int tableLog, int[] counts, int total, int maxSymbol)
     {
-        if (tableLog == 0) {
+        if (tableLog == 0) { // TODO: necessary?
             tableLog = DEFAULT_TABLE_LOG;
         }
 
@@ -374,7 +374,6 @@ class FiniteStateEntropy
         return 0;
     }
 
-    //    size_t FSE_writeNCount (void* buffer, size_t bufferSize, const short* normalizedCounter, unsigned maxSymbolValue, unsigned tableLog)
     public static int writeNormalizedCounts(Object outputBase, long outputAddress, int outputSize, short[] normalizedCounts, int maxSymbol, int tableLog)
     {
         verify(tableLog <= MAX_TABLE_LOG, "FSE table too large");

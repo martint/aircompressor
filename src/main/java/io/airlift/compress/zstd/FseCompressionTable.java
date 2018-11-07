@@ -31,7 +31,7 @@ public class FseCompressionTable
         deltaFindState = new int[maxSymbolValue + 1];
     }
 
-    public static FseCompressionTable makeRleTable(FseCompressionTable table, int symbol)
+    public static void makeRleTable(FseCompressionTable table, int symbol)
     {
         table.log2Size = 0;
 
@@ -40,16 +40,10 @@ public class FseCompressionTable
 
         table.deltaFindState[symbol] = 0;
         table.deltaNumberOfBits[symbol] = 0;
-
-        return table;
     }
 
     public void copy(FseCompressionTable other)
     {
-//        if (other.log2Size != log2Size || other.maxSymbol != maxSymbol) {
-//            throw new IllegalArgumentException();
-//        }
-
         System.arraycopy(other.deltaNumberOfBits, 0, deltaNumberOfBits, 0, other.deltaNumberOfBits.length);
         System.arraycopy(other.deltaFindState, 0, deltaFindState, 0, other.deltaFindState.length);
         System.arraycopy(other.nextState, 0, nextState, 0, other.nextState.length);

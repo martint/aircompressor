@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Measurement(iterations = 10)
 @Warmup(iterations = 5)
-@Fork(3)
+@Fork(1)
 public class BenchmarkHash
 {
     private static final long PRIME_5_BYTES = 0xCF_1B_BC_DC_BBL;
