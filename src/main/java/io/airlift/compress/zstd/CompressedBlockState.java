@@ -26,7 +26,7 @@ class CompressedBlockState
 
     public static class Entropy
     {
-        HuffmanContext huffman = new HuffmanContext(new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT));
+        final HuffmanContext huffman = new HuffmanContext(new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT));
 
         FseTable literalLengths = new FseTable(new FseCompressionTable(Constants.LITERALS_LENGTH_FSE_LOG, Constants.MAX_LITERALS_LENGTH_SYMBOL));
         FseTable offsetCodes = new FseTable(new FseCompressionTable(Constants.OFFSET_CODES_FSE_LOG, Constants.MAX_OFFSET_CODE_SYMBOL));
@@ -64,12 +64,10 @@ class CompressedBlockState
 
     public static class HuffmanContext
     {
-        public RepeatMode repeat;
         public HuffmanCompressionTable table;
 
         public HuffmanContext(HuffmanCompressionTable table)
         {
-            this.repeat = RepeatMode.REPEAT_NONE;
             this.table = table;
         }
     }

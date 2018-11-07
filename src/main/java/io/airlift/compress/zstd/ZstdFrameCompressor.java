@@ -231,7 +231,6 @@ class ZstdFrameCompressor
 
         context.blockState.next.entropy.huffman.table.copyFrom(context.blockState.previous.entropy.huffman.table);
         int compressedLiteralsSize = SequenceCompressor.compressLiterals(
-                context.blockState.previous.entropy.huffman.repeat,
                 context.blockState.next.entropy.huffman,
                 parameters,
                 outputBase,
