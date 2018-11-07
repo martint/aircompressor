@@ -191,6 +191,8 @@ public class HuffmanCompressor
             table.values[n] = valuesPerRank[table.numberOfBits[n]]++; // assign value within rank, symbol order
         }
 
+        table.maxSymbol = maxSymbolValue;
+
         DebugLog.print("Huffman compression table");
         for (int i = 0; i < maxSymbolValue; i++) {
             DebugLog.print("symbol: %3d => value: %5d, bits: %d", i, table.values[i], table.numberOfBits[i]);
@@ -475,6 +477,7 @@ public class HuffmanCompressor
     //   - read 2 symbols at a time from the input
     private static void encodeSymbol(BitstreamEncoder bitstream, int symbol, HuffmanCompressionTable table)
     {
+        verify(symbol <= table.maxSymbol, "symbol not in table");
 //        DebugLog.print("Encoded symbol: %3d => %6d (bits: %2d)", symbol, table.values[symbol], table.numberOfBits[symbol]);
         bitstream.addBitsFast(table.values[symbol], table.numberOfBits[symbol]);
     }

@@ -13,12 +13,12 @@
  */
 package io.airlift.compress.zstd;
 
-import java.util.Arrays;
-
 public final class HuffmanCompressionTable
 {
     final short[] values;
     final byte[] numberOfBits;
+
+    int maxSymbol;
 
     public HuffmanCompressionTable(int capacity)
     {
@@ -31,6 +31,11 @@ public final class HuffmanCompressionTable
      */
     public boolean isValid(int[] counts, int maxSymbol)
     {
+        if (maxSymbol > this.maxSymbol) {
+            // some non-zero count symbols cannot be encoded by the current table
+            return false;
+        }
+
         for (int symbol = 0; symbol <= maxSymbol; ++symbol) {
             if (counts[symbol] != 0 && numberOfBits[symbol] == 0) {
                 return false;
@@ -39,10 +44,10 @@ public final class HuffmanCompressionTable
         return true;
     }
 
-    public int estimateCompressedSize(int[] counts, int maxSymbolValue)
+    public int estimateCompressedSize(int[] counts, int maxSymbol)
     {
         int numberOfBits = 0;
-        for (int symbol = 0; symbol <= maxSymbolValue; symbol++) {
+        for (int symbol = 0; symbol <= Math.min(maxSymbol, this.maxSymbol); symbol++) {
             numberOfBits += this.numberOfBits[symbol] * counts[symbol];
             DebugLog.print("symbol %d: bits=%d, count=%d, total-so-far=%d", symbol, this.numberOfBits[symbol], counts[symbol], numberOfBits);
         }
@@ -52,13 +57,18 @@ public final class HuffmanCompressionTable
 
     public void trim(int maxSymbolValue)
     {
-        Arrays.fill(values, maxSymbolValue + 1, values.length, (short) 0);
-        Arrays.fill(numberOfBits, maxSymbolValue + 1, values.length, (byte) 0);
+        this.maxSymbol = maxSymbolValue;
+//        Arrays.fill(values, maxSymbolValue + 1, values.length, (short) 0);
+//        Arrays.fill(numberOfBits, maxSymbolValue + 1, values.length, (byte) 0);
     }
 
     public void copyFrom(HuffmanCompressionTable other)
     {
-        System.arraycopy(other.values, 0, values, 0, values.length);
-        System.arraycopy(other.numberOfBits, 0, numberOfBits, 0, numberOfBits.length);
+//        System.arraycopy(other.values, 0, values, 0, values.length);
+//        System.arraycopy(other.numberOfBits, 0, numberOfBits, 0, numberOfBits.length);
+
+        System.arraycopy(other.values, 0, values, 0, other.maxSymbol + 1);
+        System.arraycopy(other.numberOfBits, 0, numberOfBits, 0, other.maxSymbol + 1);
+        maxSymbol = other.maxSymbol;
     }
 }

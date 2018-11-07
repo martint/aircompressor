@@ -633,16 +633,18 @@ class SequenceCompressor
         }
 
         // build huffman tree
-        tableLog = HuffmanCompressor.optimalTableLog(tableLog, inputSize, maxSymbolValue);
-        tableLog = HuffmanCompressor.buildCompressionTable(context.table, counts, maxSymbolValue, tableLog, context.compressionTableWorkspace);
-
-        // Zero unused symbols in compression table, so we can check it for validity
-        context.table.trim(maxSymbolValue);
+        tableLog = HuffmanCompressor.buildCompressionTable(
+                context.table,
+                counts,
+                maxSymbolValue,
+                HuffmanCompressor.optimalTableLog(tableLog, inputSize, maxSymbolValue),
+                context.compressionTableWorkspace);
 
         // Write table description header
         int headerSize = HuffmanCompressor.writeHuffmanTable(outputBase, outputAddress, outputSize, context.table, maxSymbolValue, tableLog);
         // Check if using previous huffman table is beneficial
         if (context.repeat != REPEAT_NONE) {
+            // previous table is guaranteed to be valid for the current histogram based on the check a few lines above
             int oldSize = previous.estimateCompressedSize(counts, maxSymbolValue);
             int newSize = context.table.estimateCompressedSize(counts, maxSymbolValue);
             if (oldSize <= headerSize + newSize || headerSize + 12 >= inputSize) {
@@ -658,6 +660,7 @@ class SequenceCompressor
             context.repeat = REPEAT_NONE;
         }
         if (previous != null) {
+            // TODO: swap tables instead?
             previous.copyFrom(context.table); // save new table
         }
 
