@@ -13,10 +13,18 @@
  */
 package io.airlift.compress.zstd;
 
-public class CompressionTableWorkspace
+import java.util.Arrays;
+
+public class HuffmanCompressionTableWorkspace
 {
     NodeTable nodeTable = new NodeTable((2 * Huffman.MAX_SYMBOL_COUNT - 1) + 1); // number of nodes in binary tree with MAX_SYMBOL_COUNT leaves + 1 for sentinel
 
     short[] numberOfBitsPerRank = new short[Huffman.MAX_TABLE_LOG + 1];
     short[] valuesPerRank = new short[Huffman.MAX_TABLE_LOG + 1];
+
+    public void reset()
+    {
+        Arrays.fill(numberOfBitsPerRank, (short) 0);
+        Arrays.fill(valuesPerRank, (short) 0);
+    }
 }

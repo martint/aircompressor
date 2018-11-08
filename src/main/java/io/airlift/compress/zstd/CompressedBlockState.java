@@ -18,7 +18,8 @@ class CompressedBlockState
     public int[] rep = new int[] {1, 4, 8};
     public Entropy entropy = new Entropy(); // TODO
 
-    public enum RepeatMode {
+    public enum RepeatMode
+    {
         REPEAT_NONE,   /* Cannot use the previous table */
         REPEAT_CHECK,  /* Can use the previous table but it must be checked */
         REPEAT_VALID  /* Can use the previous table and it is asumed to be valid */
@@ -26,7 +27,7 @@ class CompressedBlockState
 
     public static class Entropy
     {
-        final HuffmanContext huffman = new HuffmanContext(new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT));
+        final HuffmanContext huffman = new HuffmanContext();
 
         FseTable literalLengths = new FseTable(new FseCompressionTable(Constants.LITERALS_LENGTH_FSE_LOG, Constants.MAX_LITERALS_LENGTH_SYMBOL));
         FseTable offsetCodes = new FseTable(new FseCompressionTable(Constants.OFFSET_CODES_FSE_LOG, Constants.MAX_OFFSET_CODE_SYMBOL));
@@ -64,11 +65,14 @@ class CompressedBlockState
 
     public static class HuffmanContext
     {
-        public HuffmanCompressionTable table;
+        public HuffmanCompressionTable previousTable = new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT);
+        public HuffmanCompressionTable nextTable = new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT);
 
-        public HuffmanContext(HuffmanCompressionTable table)
+        public void saveTable()
         {
-            this.table = table;
+            HuffmanCompressionTable temp = previousTable;
+            previousTable = nextTable;
+            nextTable = temp;
         }
     }
 }

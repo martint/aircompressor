@@ -101,8 +101,10 @@ public class HuffmanCompressor
 
     private static final int STARTNODE = MAX_SYMBOL_COUNT;
 
-    public static int buildCompressionTable(HuffmanCompressionTable table, int[] counts, int maxSymbolValue, int maxNumberOfBits, CompressionTableWorkspace workspace)
+    public static int buildCompressionTable(HuffmanCompressionTable table, int[] counts, int maxSymbolValue, int maxNumberOfBits, HuffmanCompressionTableWorkspace workspace)
     {
+        workspace.reset();
+        
         NodeTable nodeTable = workspace.nodeTable;
         short[] numberOfBitsPerRank = workspace.numberOfBitsPerRank; // new short[MAX_TABLE_LOG + 1];   // TODO allocate in context and reuse
         short[] valuesPerRank = workspace.valuesPerRank; // new short[MAX_TABLE_LOG + 1];

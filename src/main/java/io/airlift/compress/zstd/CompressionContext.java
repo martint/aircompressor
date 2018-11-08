@@ -20,6 +20,8 @@ public class CompressionContext
     public BlockState blockState;
     public BlockCompressionState blockCompressionState;
     public SequenceStore sequenceStore;
+    
+    public HuffmanCompressionTableWorkspace huffmanCompressionTableWorkspace = new HuffmanCompressionTableWorkspace();
 
     public final int blockSize;
 

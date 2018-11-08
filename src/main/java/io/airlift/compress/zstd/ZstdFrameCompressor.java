@@ -229,9 +229,12 @@ class ZstdFrameCompressor
         long outputLimit = outputAddress + outputSize;
         long output = outputAddress;
 
-        context.blockState.next.entropy.huffman.table.copyFrom(context.blockState.previous.entropy.huffman.table);
-        int compressedLiteralsSize = SequenceCompressor.compressLiterals(
+        // TODO: we're doing double-buffering at this layer and also inside compressLiterals, so we end up with 4 huffman tables and this copyFrom below, which should
+        // not be needed.
+        context.blockState.next.entropy.huffman.previousTable.copyFrom(context.blockState.previous.entropy.huffman.previousTable);
+        int compressedLiteralsSize = SequenceCompressor.encodeLiterals(
                 context.blockState.next.entropy.huffman,
+                context.huffmanCompressionTableWorkspace,
                 parameters,
                 outputBase,
                 output,

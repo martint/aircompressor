@@ -80,6 +80,9 @@ class SequenceCompressor
     private static final int OFFSET_DEFAULT_NORM_LOG = 5;// TODO: repeat is never REPEAT_VALID in current code. It's only set when loading external dictionaries in the native code
     private static final int MINIMUM_LITERALS_SIZE = 63;
 
+    // the maximum table log allowed for literal encoding
+    private static final int MAX_HUFFMAN_TABLE_LOG = 11;
+
     public static int compressSequences(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, final long outputAddress, int outputSize)
     {
         long outputLimit = outputAddress + outputSize;
@@ -410,8 +413,9 @@ class SequenceCompressor
         return streamSize;
     }
 
-    public static int compressLiterals(
-            CompressedBlockState.HuffmanContext huffmanContext,
+    public static int encodeLiterals(
+            CompressedBlockState.HuffmanContext context,
+            HuffmanCompressionTableWorkspace workspace,
             CompressionParameters parameters,
             Object outputBase,
             long outputAddress,
@@ -450,56 +454,53 @@ class SequenceCompressor
             return rawLiterals(outputBase, outputAddress, outputSize, literals, ARRAY_BYTE_BASE_OFFSET, literalsSize);
         }
 
-        HuffmanCompressionTable previousTable = huffmanContext.table;
-        HuffmanCompressionTable nextTable;
+        HuffmanCompressionTable previousTable = context.previousTable;
+        HuffmanCompressionTable table;
         int serializedTableSize;
         boolean reuseTable;
 
         boolean canReuse = previousTable.isValid(counts, maxSymbol);
 
-        // heuristic: use existing nextTable for small inputs if valid
+        // heuristic: use existing table for small inputs if valid
         // TODO: move to Strategy
         boolean preferReuse = parameters.getStrategy().ordinal() < CompressionParameters.Strategy.LAZY.ordinal() && literalsSize <= 1024;
         if (preferReuse && canReuse) {
-            nextTable = previousTable;
+            table = previousTable;
             reuseTable = true;
             serializedTableSize = 0;
         }
         else {
-            HuffmanCompressionTable newTable = new HuffmanCompressionTable(Huffman.MAX_SYMBOL_COUNT); // TODO: preallocate in context
+            HuffmanCompressionTable nextTable = context.nextTable;
 
-            // build huffman tree
             int tableLog = HuffmanCompressor.buildCompressionTable(
-                    newTable,
+                    nextTable,
                     counts,
                     maxSymbol,
-                    HuffmanCompressor.optimalTableLog(11, literalsSize, maxSymbol),
-                    new CompressionTableWorkspace()); // TODO: preallocate in context
+                    HuffmanCompressor.optimalTableLog(MAX_HUFFMAN_TABLE_LOG, literalsSize, maxSymbol),
+                    workspace);
 
-            // Write nextTable description header
-            serializedTableSize = HuffmanCompressor.writeHuffmanTable(outputBase, outputAddress + headerSize, outputSize - headerSize, newTable, maxSymbol, tableLog);
+            serializedTableSize = HuffmanCompressor.writeHuffmanTable(outputBase, outputAddress + headerSize, outputSize - headerSize, nextTable, maxSymbol, tableLog);
 
             // Check if using previous huffman table is beneficial
-            if (canReuse && previousTable.estimateCompressedSize(counts, maxSymbol) <= serializedTableSize + newTable.estimateCompressedSize(counts, maxSymbol)) {
-                nextTable = previousTable;
+            if (canReuse && previousTable.estimateCompressedSize(counts, maxSymbol) <= serializedTableSize + nextTable.estimateCompressedSize(counts, maxSymbol)) {
+                table = previousTable;
                 reuseTable = true;
                 serializedTableSize = 0;
             }
             else {
+                table = nextTable;
                 reuseTable = false;
-                // TODO: swap tables instead?
-                previousTable.copyFrom(newTable); // save new nextTable
-                nextTable = previousTable;
+                context.saveTable();
             }
         }
 
         int compressedSize;
         boolean singleStream = literalsSize < 256;
         if (singleStream) {
-            compressedSize = HuffmanCompressor.compressSingleStream(outputBase, outputAddress + headerSize + serializedTableSize, outputSize - headerSize - serializedTableSize, literals, literalsAddress, literalsSize, nextTable);
+            compressedSize = HuffmanCompressor.compressSingleStream(outputBase, outputAddress + headerSize + serializedTableSize, outputSize - headerSize - serializedTableSize, literals, literalsAddress, literalsSize, table);
         }
         else {
-            compressedSize = HuffmanCompressor.compress4streams(outputBase, outputAddress + headerSize + serializedTableSize, outputSize - headerSize - serializedTableSize, literals, literalsAddress, literalsSize, nextTable);
+            compressedSize = HuffmanCompressor.compress4streams(outputBase, outputAddress + headerSize + serializedTableSize, outputSize - headerSize - serializedTableSize, literals, literalsAddress, literalsSize, table);
         }
 
         int totalSize = serializedTableSize + compressedSize;
