@@ -84,7 +84,7 @@ public class BitstreamEncoder
 
     public int close()
     {
-        addBitsFast(1, 1); // TODO addBitsFast  /* endMark */
+        addBitsFast(1, 1); // end mark
         flush();
 
         if (currentAddress >= outputLimit) {

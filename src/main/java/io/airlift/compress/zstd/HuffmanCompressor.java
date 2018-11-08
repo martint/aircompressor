@@ -337,29 +337,32 @@ public class HuffmanCompressor
         return maxNbBits;
     }
 
-    public static int compress(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, boolean singleStream, HuffmanCompressionTable table, int headerSize)
-    {
-        int compressedSize;
+//    public static int compress(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, boolean singleStream, HuffmanCompressionTable table, int headerSize)
+//    {
+//        int compressedSize;
+//
+//        if (singleStream) {
+//            compressedSize = compressSingleStream(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, table);
+//        }
+//        else {
+//            compressedSize = compress4streams(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, table);
+//        }
+//
+//        int result;
+//        if (compressedSize == 0) {
+//            result = 0; // incompressible
+//        }
+//        else if (compressedSize + headerSize >= inputSize - 1) {
+//            result = 0;
+//        }
+//        else {
+//            result = compressedSize + headerSize;
+//        }
+//
+//        return result;
+//    }
 
-        if (singleStream) {
-            compressedSize = compressSingleStream(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, table);
-        }
-        else {
-            compressedSize = compress4streams(outputBase, outputAddress, outputSize, inputBase, inputAddress, inputSize, table);
-        }
-
-        if (compressedSize == 0) {
-            return 0; // incompressible
-        }
-
-        if (compressedSize + headerSize >= inputSize - 1) {
-            return 0;
-        }
-
-        return compressedSize + headerSize;
-    }
-
-    private static int compress4streams(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, HuffmanCompressionTable table)
+    public static int compress4streams(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, HuffmanCompressionTable table)
     {
         long input = inputAddress;
         long inputLimit = inputAddress + inputSize;
@@ -368,11 +371,11 @@ public class HuffmanCompressor
 
         int segmentSize = (inputSize + 3) / 4;
 
-        if (outputSize < 6 + 1 + 1 + 1 + 8) { // TODO: what does each number represent?
+        if (outputSize < 6 /* jump table */ + 1 /* first stream */ + 1 /* second stream */ + 1 /* third stream */ + 8 /* 8 bytes minimum needed by the bitstream encoder */) {
             return 0; // minimum space to compress successfully
         }
 
-        if (inputSize < 12) { // TODO: what's 12?
+        if (inputSize <= 6 + 1 + 1 + 1) { // jump table + one byte per stream
             return 0;  // no saving possible: input too small
         }
 
@@ -421,7 +424,7 @@ public class HuffmanCompressor
         return (int) (output - outputAddress);
     }
 
-    private static int compressSingleStream(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, HuffmanCompressionTable table)
+    public static int compressSingleStream(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, HuffmanCompressionTable table)
     {
         BitstreamEncoder bitstream = new BitstreamEncoder(outputBase, outputAddress, outputSize);
         long input = inputAddress;
