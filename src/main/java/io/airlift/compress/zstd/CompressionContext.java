@@ -21,9 +21,7 @@ public class CompressionContext
     public BlockCompressionState blockCompressionState;
     public SequenceStore sequenceStore;
     
-    public HuffmanCompressionTableWorkspace huffmanCompressionTableWorkspace = new HuffmanCompressionTableWorkspace();
-
-    public final int blockSize;
+    public HuffmanCompressionContext huffmanContext = new HuffmanCompressionContext();
 
     public CompressionContext(CompressionParameters parameters, long baseAddress, int inputSize)
     {
@@ -33,10 +31,18 @@ public class CompressionContext
 
         int maxSequences = blockSize / divider;
 
-        this.blockSize = blockSize;
         sequenceStore = new SequenceStore(blockSize, maxSequences);
 
         blockCompressionState = new BlockCompressionState(parameters, baseAddress);
         blockState = new BlockState();
+    }
+
+    public void commit()
+    {
+        CompressedBlockState temp = blockState.previous;
+        blockState.previous = blockState.next;
+        blockState.next = temp;
+
+        huffmanContext.commit();
     }
 }

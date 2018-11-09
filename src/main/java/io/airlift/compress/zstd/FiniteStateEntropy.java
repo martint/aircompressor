@@ -217,10 +217,6 @@ class FiniteStateEntropy
 
     public static int normalizeCounts(short[] normalizedCounts, int tableLog, int[] counts, int total, int maxSymbol)
     {
-        if (tableLog == 0) { // TODO: necessary?
-            tableLog = DEFAULT_TABLE_LOG;
-        }
-
         verify(tableLog >= FiniteStateEntropy.MIN_TABLE_LOG, "Unsupported FSE table size");
         verify(tableLog <= MAX_TABLE_LOG, "FSE table size too large");
         verify(tableLog >= minTableLog(total, maxSymbol), "FSE table size too small");
@@ -237,7 +233,8 @@ class FiniteStateEntropy
 
         for (int symbol = 0; symbol <= maxSymbol; symbol++) {
             if (counts[symbol] == total) {
-                return 0; // rle special case
+                throw new IllegalArgumentException(); // TODO: should have been RLE-compressed by upper layers
+//                return 0; // rle special case
             }
             if (counts[symbol] == 0) {
                 normalizedCounts[symbol] = 0;
@@ -399,7 +396,7 @@ class FiniteStateEntropy
         boolean previous0 = false;
         while (remaining > 1) {
             if (previous0) {
-                // From RFC 8478:
+                // From RFC 8478, section 4.1.1:
                 //   When a symbol has a probability of zero, it is followed by a 2-bit
                 //   repeat flag.  This repeat flag tells how many probabilities of zeroes
                 //   follow the current one.  It provides a number ranging from 0 to 3.

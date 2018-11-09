@@ -13,6 +13,8 @@
  */
 package io.airlift.compress.zstd;
 
+import java.util.Arrays;
+
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
@@ -30,7 +32,7 @@ class Histogram
         this.counts = counts;
     }
 
-    public static Histogram count(Object inputBase, long inputAddress, int inputSize, int maxSymbol)
+    private static Histogram count(Object inputBase, long inputAddress, int inputSize, int maxSymbol, int[] workspace)
     {
 //        DebugLog.print("Computing histogram. Input size = %d", inputSize);
 
@@ -42,7 +44,8 @@ class Histogram
         // TODO: allocate once per compressor & fill with 0s:
         //  int[] counts = new int[MAX_SEQUENCES + 1]; for sequence encoder
         //  int[] counts = new int[HUF_SYMBOLVALUE_MAX + 1]; for huffman encoder
-        int[] counts = new int[maxSymbol + 1];
+        int[] counts = workspace;
+        Arrays.fill(counts, 0);
 
         if (inputSize == 0) {
             return new Histogram(0, 0, counts);
@@ -53,11 +56,6 @@ class Histogram
             input++;
             counts[symbol]++;
         }
-//        while (input < inputLimit) {
-//            int symbol = UNSAFE.getByte(inputBase, input) & 0xFF;
-//            input++;
-//            counts[symbol]++;
-//        }
 
         while (counts[maxSymbol] == 0) {
             maxSymbol--;
@@ -77,8 +75,8 @@ class Histogram
         return new Histogram(maxSymbol, largestCount, counts);
     }
 
-    public static Histogram count(byte[] input, int length, int maxSymbol)
+    public static Histogram count(byte[] input, int length, int maxSymbol, int[] workspace)
     {
-        return count(input, ARRAY_BYTE_BASE_OFFSET, length, maxSymbol);
+        return count(input, ARRAY_BYTE_BASE_OFFSET, length, maxSymbol, workspace);
     }
 }

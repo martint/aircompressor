@@ -42,7 +42,7 @@ public class TestZstd
     @Override
     protected Compressor getVerifyCompressor()
     {
-        return new ZstdJniCompressor(6);
+        return new ZstdJniCompressor(3);
     }
 
     @Override
