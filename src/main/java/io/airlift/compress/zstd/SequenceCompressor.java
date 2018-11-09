@@ -451,7 +451,7 @@ class SequenceCompressor
         if (strategy.ordinal() < CompressionParameters.Strategy.LAZY.ordinal()) { // TODO: more robust check. Maybe encapsulate in strategy objects
             if (isDefaultAllowed) {
                 int maxNumberOfSequences = 1000;
-                int mult = 10 - strategy.ordinal(); // TODO more robust
+                int mult = 10 - strategy.ordinal(); // TODO more robust. Move it to stragegy
                 int baseLog = 3;
                 long minNumberOfSequences = ((1L << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
 
