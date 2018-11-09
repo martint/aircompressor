@@ -90,7 +90,7 @@ public class BitstreamEncoder
         if (currentAddress >= outputLimit) {
             return 0; /* overflow detected */
         }
-        
+
         return (int) ((currentAddress - outputAddress) + (bitCount > 0 ? 1 : 0));
     }
 }

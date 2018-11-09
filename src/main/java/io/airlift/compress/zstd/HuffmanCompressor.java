@@ -25,6 +25,10 @@ import static io.airlift.compress.zstd.Util.verify;
 
 public class HuffmanCompressor
 {
+    private HuffmanCompressor()
+    {
+    }
+
     public static int optimalTableLog(int maxTableLog, int srcSize, int maxSymbolValue)
     {
         // TODO: same as FSE.optimalTableLog but with "- 1" instead of "- 2" in maxBitsSrc
@@ -60,10 +64,10 @@ public class HuffmanCompressor
     public static void buildCompressionTable(HuffmanCompressionTable table, int[] counts, int maxSymbol, int maxNumberOfBits, HuffmanCompressionTableWorkspace workspace)
     {
         workspace.reset();
-        
+
         NodeTable nodeTable = workspace.nodeTable;
         short[] numberOfBitsPerRank = workspace.numberOfBitsPerRank;
-        short[] valuesPerRank = workspace.valuesPerRank; 
+        short[] valuesPerRank = workspace.valuesPerRank;
 
         int offset = 1; // TODO to simulate "huffNode" in the native code
 

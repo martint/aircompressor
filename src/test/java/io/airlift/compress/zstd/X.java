@@ -22,6 +22,10 @@ import java.util.Arrays;
 
 public class X
 {
+    private X()
+    {
+    }
+
     public static void main(String[] args)
             throws Exception
     {
@@ -49,7 +53,6 @@ public class X
             compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
         }
 
-
         System.err.println("decompressing");
 //        for (int i = 0; i < compressedSize; i++) {
 //            System.out.println("main.c: " + compressed[i]);
@@ -72,5 +75,4 @@ public class X
             }
         }
     }
-
 }

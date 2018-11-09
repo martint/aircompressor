@@ -27,7 +27,7 @@ public class HuffmanCompressionTableWorkspace
     final int[] rankCurrent = new int[32];
 
     // for setMaxHeight
-    final int[] rankLast = new int[Huffman.MAX_TABLE_LOG + 2];;
+    final int[] rankLast = new int[Huffman.MAX_TABLE_LOG + 2];
 
     public void reset()
     {

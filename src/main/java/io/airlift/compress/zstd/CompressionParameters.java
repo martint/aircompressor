@@ -36,7 +36,8 @@ class CompressionParameters
     private final Strategy strategy;
 
     private static final CompressionParameters[][] DEFAULT_COMPRESSION_PARAMETERS = new CompressionParameters[][] {
-            {   // default
+            {
+                // default
                 new CompressionParameters(19, 12, 13, 1, 6, 1, Strategy.FAST),  /* base for negative levels */
                 new CompressionParameters(19, 13, 14, 1, 7, 0, Strategy.FAST),  /* level  1 */
                 new CompressionParameters(19, 15, 16, 1, 6, 0, Strategy.FAST),  /* level  2 */
@@ -61,7 +62,8 @@ class CompressionParameters
                 new CompressionParameters(26, 26, 24, 7, 3, 512, Strategy.BTULTRA),  /* level 21 */
                 new CompressionParameters(27, 27, 25, 9, 3, 999, Strategy.BTULTRA)  /* level 22 */
             },
-            {   // for size <= 256 KB
+            {
+                // for size <= 256 KB
                 new CompressionParameters(18, 12, 13, 1, 5, 1, Strategy.FAST),  /* base for negative levels */
                 new CompressionParameters(18, 13, 14, 1, 6, 0, Strategy.FAST),  /* level  1 */
                 new CompressionParameters(18, 14, 14, 1, 5, 1, Strategy.DFAST),  /* level  2 */
@@ -86,7 +88,8 @@ class CompressionParameters
                 new CompressionParameters(18, 19, 19, 12, 3, 512, Strategy.BTULTRA),  /* level 21.*/
                 new CompressionParameters(18, 19, 19, 13, 3, 999, Strategy.BTULTRA)  /* level 22.*/
             },
-            {   // for size <= 128 KB
+            {
+                // for size <= 128 KB
                 new CompressionParameters(17, 12, 12, 1, 5, 1, Strategy.FAST),  /* base for negative levels */
                 new CompressionParameters(17, 12, 13, 1, 6, 0, Strategy.FAST),  /* level  1 */
                 new CompressionParameters(17, 13, 15, 1, 5, 0, Strategy.FAST),  /* level  2 */
@@ -111,7 +114,8 @@ class CompressionParameters
                 new CompressionParameters(17, 18, 17, 10, 3, 256, Strategy.BTULTRA),  /* level 21.*/
                 new CompressionParameters(17, 18, 17, 11, 3, 512, Strategy.BTULTRA)  /* level 22.*/
             },
-            {   // for size <= 16 KB
+            {
+                // for size <= 16 KB
                 new CompressionParameters(14, 12, 13, 1, 5, 1, Strategy.FAST),  /* base for negative levels */
                 new CompressionParameters(14, 14, 15, 1, 5, 0, Strategy.FAST),  /* level  1 */
                 new CompressionParameters(14, 14, 15, 1, 4, 0, Strategy.FAST),  /* level  2 */
@@ -317,9 +321,7 @@ class CompressionParameters
                                     parameters.searchLog,
                                     parameters.searchLength,
                                     parameters.targetLength,
-                                    parameters.strategy
-                            )
-                    );
+                                    parameters.strategy));
                 });
     }
 }

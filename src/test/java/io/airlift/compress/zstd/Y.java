@@ -22,6 +22,10 @@ import java.nio.file.Paths;
 
 public class Y
 {
+    private Y()
+    {
+    }
+
     public static void main(String[] args)
             throws FileNotFoundException
     {
@@ -47,7 +51,6 @@ public class Y
             }
 
             if (input != null) {
-
                 try {
                     byte[] output = new byte[compressor.maxCompressedLength(input.length)];
                     int compressedSize = compressor.compress(input, 0, input.length, output, 0, output.length);

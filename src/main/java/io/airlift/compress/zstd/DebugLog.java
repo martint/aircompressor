@@ -30,6 +30,10 @@ public class DebugLog
         }
     }
 
+    private DebugLog()
+    {
+    }
+
     public static void print(String format)
     {
         if (ENABLED) {

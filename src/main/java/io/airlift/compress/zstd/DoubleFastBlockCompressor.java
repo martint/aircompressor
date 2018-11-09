@@ -177,12 +177,13 @@ class DoubleFastBlockCompressor
         /* save reps for next block */
         rep[0] = offset1 != 0 ? offset1 : offsetSaved;
         rep[1] = offset2 != 0 ? offset2 : offsetSaved;
-        
+
         // return the last literals size
         return (int) (inputEnd - anchor);
     }
 
     // TODO: same as LZ4RawCompressor.count
+
     /**
      * matchAddress must be < inputAddress
      */

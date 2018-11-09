@@ -74,7 +74,11 @@ class SequenceCompressor
 
     private static final int LITERALS_LENGTH_DEFAULT_NORM_LOG = 6;
     private static final int MATCH_LENGTH_DEFAULT_NORM_LOG = 6;
-    private static final int OFFSET_DEFAULT_NORM_LOG = 5;// TODO: repeat is never REPEAT_VALID in current code. It's only set when loading external dictionaries in the native code
+    private static final int OFFSET_DEFAULT_NORM_LOG = 5; // TODO: repeat is never REPEAT_VALID in current code. It's only set when loading external dictionaries in the native code
+
+    private SequenceCompressor()
+    {
+    }
 
     public static int compressSequences(SequenceStore sequences, CompressedBlockState.Entropy previousEntropy, CompressedBlockState.Entropy nextEntropy, CompressionParameters parameters, Object outputBase, final long outputAddress, int outputSize)
     {
@@ -424,7 +428,7 @@ class SequenceCompressor
             int maxSymbol,
             int largestCount,
             int sequenceCount,
-            int FSELog,
+            int fseLog,
             FseCompressionTable prevCTable,
             short[] defaultNorm,
             int defaultNormLog,
@@ -446,17 +450,17 @@ class SequenceCompressor
 
         if (strategy.ordinal() < CompressionParameters.Strategy.LAZY.ordinal()) { // TODO: more robust check. Maybe encapsulate in strategy objects
             if (isDefaultAllowed) {
-                int staticFse_nbSeq_max = 1000;
+                int maxNumberOfSequences = 1000;
                 int mult = 10 - strategy.ordinal(); // TODO more robust
                 int baseLog = 3;
-                long dynamicFse_nbSeq_min = ((1L << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
+                long minNumberOfSequences = ((1L << defaultNormLog) * mult) >> baseLog;  /* 28-36 for offset, 56-72 for lengths */
 
-                if ((repeatMode == REPEAT_VALID) && (sequenceCount < staticFse_nbSeq_max)) {
+                if ((repeatMode == REPEAT_VALID) && (sequenceCount < maxNumberOfSequences)) {
 //                    DebugLog.print("Selected set_repeat");
                     return new EncodingType(SEQUENCE_ENCODING_REPEAT, REPEAT_VALID);
                 }
 
-                if ((sequenceCount < dynamicFse_nbSeq_min) || (largestCount < (sequenceCount >> (defaultNormLog - 1)))) {
+                if ((sequenceCount < minNumberOfSequences) || (largestCount < (sequenceCount >> (defaultNormLog - 1)))) {
                     /* The format allows default tables to be repeated, but it isn't useful.
                      * When using simple heuristics to select encoding type, we don't want
                      * to confuse these tables with dictionaries. When running more careful
@@ -498,15 +502,15 @@ class SequenceCompressor
                 return 0;
             case SEQUENCE_ENCODING_COMPRESSED:
                 short[] norm = new short[MAX_SEQUENCES + 1]; // TODO: allocate in context
-                int nbSeq_1 = numberOfSequences;
+                int nbSeq1 = numberOfSequences;
 
                 int tableLog = optimalTableLog(fseLog, numberOfSequences, maxSymbol);
                 if (counts[codeTable[numberOfSequences - 1]] > 1) {
                     counts[codeTable[numberOfSequences - 1]]--;
-                    nbSeq_1--;
+                    nbSeq1--;
                 }
 
-                FiniteStateEntropy.normalizeCounts(norm, tableLog, counts, nbSeq_1, maxSymbol);
+                FiniteStateEntropy.normalizeCounts(norm, tableLog, counts, nbSeq1, maxSymbol);
 
                 int size = FiniteStateEntropy.writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), norm, maxSymbol, tableLog); // TODO: pass outputLimit directly
                 FiniteStateEntropy.buildCompressionTable(nextCompressionTable, norm, maxSymbol, tableLog);

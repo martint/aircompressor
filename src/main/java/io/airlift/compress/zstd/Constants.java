@@ -50,7 +50,6 @@ public class Constants
     static final int MAX_OFFSET_CODE_SYMBOL = 31;
     static final int DEFAULT_MAX_OFFSET_CODE_SYMBOL = 28;
 
-
     public static final int MAX_BLOCK_SIZE = 1 << 17;
 
     static final int LITERALS_LENGTH_FSE_LOG = 9;

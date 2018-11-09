@@ -185,7 +185,7 @@ class ZstdFrameCompressor
                 compressedSize = compressBlock(inputBase, input, blockSize, outputBase, output + SIZE_OF_BLOCK_HEADER, outputSize - SIZE_OF_BLOCK_HEADER, context, parameters);
             }
 
-            if (compressedSize == 0) {  // block is not compressible 
+            if (compressedSize == 0) { // block is not compressible
 //                DebugLog.print("Not compressible. Writing raw block at offset %d", output);
                 verify(blockSize + SIZE_OF_BLOCK_HEADER <= outputSize, input, "Output size too small");
 
@@ -212,14 +212,13 @@ class ZstdFrameCompressor
 
     private static int compressBlock(Object inputBase, long inputAddress, int inputSize, Object outputBase, long outputAddress, int outputSize, CompressionContext context, CompressionParameters parameters)
     {
-
         if (inputSize < MIN_BLOCK_SIZE + SIZE_OF_BLOCK_HEADER + 1) {
             //  don't even attempt compression below a certain input size
             return 0;
         }
 
         context.blockCompressionState.enforceMaxDistance(inputAddress + inputSize, 1 << parameters.getWindowLog());
-        
+
         context.sequenceStore.reset();
 
         for (int i = 0; i < REP_CODE_COUNT; i++) {
@@ -229,7 +228,7 @@ class ZstdFrameCompressor
         int lastLiteralsSize = parameters.getStrategy()
                 .getCompressor()
                 .compressBlock(inputBase, inputAddress, inputSize, context.sequenceStore, context.blockCompressionState, context.blockState.next.rep, parameters);
-        
+
         long lastLiteralsAddress = inputAddress + inputSize - lastLiteralsSize;
 
         // append [lastLiteralsAddress .. lastLiteralsSize] to sequenceStore literals buffer
@@ -256,13 +255,13 @@ class ZstdFrameCompressor
             return compressedSize;
         }
 
-        // Check compressibility 
+        // Check compressibility
         int maxCompressedSize = inputSize - minGain(inputSize, parameters.getStrategy());
         if (compressedSize > maxCompressedSize) {
             return 0; // not compressed
         }
 
-        // confirm repcodes and entropy tables 
+        // confirm repcodes and entropy tables
         context.commit();
 
         return compressedSize;
@@ -461,7 +460,6 @@ class ZstdFrameCompressor
 
         return headerSize + inputSize;
     }
-
 
     public static void main(String[] args)
             throws Exception

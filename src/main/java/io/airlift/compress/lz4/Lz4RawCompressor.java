@@ -44,7 +44,9 @@ public final class Lz4RawCompressor
 
     private static final int SKIP_TRIGGER = 6;  /* Increase this value ==> compression run slower on incompressible data */
 
-    private Lz4RawCompressor() {}
+    private Lz4RawCompressor()
+    {
+    }
 
     private static int hash(long value, int mask)
     {
@@ -264,7 +266,7 @@ public final class Lz4RawCompressor
 
         return count;
     }
-    
+
     private static long emitLastLiteral(
             final Object outputBase,
             final long outputAddress,

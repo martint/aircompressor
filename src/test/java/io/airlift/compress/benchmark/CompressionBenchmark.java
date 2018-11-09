@@ -56,26 +56,26 @@ public class CompressionBenchmark
     private byte[] uncompressTarget;
 
     @Param({
-//            "airlift_lz4",
-//            "airlift_lzo",
-//            "airlift_snappy",
+            "airlift_lz4",
+            "airlift_lzo",
+            "airlift_snappy",
             "airlift_zstd",
 
-//            "iq80_snappy",
-//            "xerial_snappy",
-//            "jpountz_lz4_jni",
-//            "hadoop_lzo",
-//            "zstd_jni",
+            "iq80_snappy",
+            "xerial_snappy",
+            "jpountz_lz4_jni",
+            "hadoop_lzo",
+            "zstd_jni",
 
-//            "airlift_lz4_stream",
-//            "airlift_lzo_stream",
-//            "airlift_snappy_stream",
+            "airlift_lz4_stream",
+            "airlift_lzo_stream",
+            "airlift_snappy_stream",
 
-//            "hadoop_lz4_stream",
-//            "hadoop_lzo_stream",
-//            "hadoop_snappy_stream",
-//            "java_zip_stream",
-//            "hadoop_gzip_stream",
+            "hadoop_lz4_stream",
+            "hadoop_lzo_stream",
+            "hadoop_snappy_stream",
+            "java_zip_stream",
+            "hadoop_gzip_stream",
     })
     private Algorithm algorithm;
 
@@ -104,7 +104,7 @@ public class CompressionBenchmark
         return written;
     }
 
-//    @Benchmark
+    @Benchmark
     public int decompress(BytesCounter counter)
     {
         int written = decompressor.decompress(compressed, 0, compressed.length, uncompressTarget, 0, uncompressTarget.length);
@@ -124,7 +124,7 @@ public class CompressionBenchmark
         }
 
 //        options.addProfiler(GCProfiler.class);
-        
+
         Collection<RunResult> results = new Runner(options.build()).run();
 
         int count = 0;

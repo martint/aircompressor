@@ -28,7 +28,7 @@ class Huffman
 {
     public static final int MAX_SYMBOL = 255;
     public static final int MAX_SYMBOL_COUNT = MAX_SYMBOL + 1;
-    
+
     public static final int MAX_TABLE_LOG = 12;
     public static final int MIN_TABLE_LOG = 5;
 
@@ -45,7 +45,6 @@ class Huffman
 
     private final FseTableReader reader = new FseTableReader();
     private final FiniteStateEntropy.Table fseTable = new FiniteStateEntropy.Table(MAX_FSE_TABLE_LOG);
-
 
     public boolean isLoaded()
     {

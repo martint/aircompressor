@@ -44,13 +44,13 @@ public class BenchmarkHash
     int bits = 16;
     long value = ThreadLocalRandom.current().nextLong();
 
-//    @Benchmark
+    //    @Benchmark
     public long hash1()
     {
         return ((value << (Long.SIZE - 40)) * PRIME_5_BYTES) >>> (Long.SIZE - bits);
     }
 
-//    @Benchmark
+    //    @Benchmark
     public long hash2()
     {
         return ((value & ((1L << 40) - 1)) * PRIME_5_BYTES >>> 40) & ((1L << bits) - 1);
@@ -61,7 +61,6 @@ public class BenchmarkHash
     {
         return ((value & ((1L << 40) - 1)) * PRIME_5_BYTES >>> 40) >>> (Long.SIZE - bits);
     }
-
 
     public static void main(String[] args)
             throws RunnerException, CommandLineOptionException

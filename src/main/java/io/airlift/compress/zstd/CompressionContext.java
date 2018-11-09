@@ -20,7 +20,7 @@ public class CompressionContext
     public BlockState blockState;
     public BlockCompressionState blockCompressionState;
     public SequenceStore sequenceStore;
-    
+
     public HuffmanCompressionContext huffmanContext = new HuffmanCompressionContext();
 
     public CompressionContext(CompressionParameters parameters, long baseAddress, int inputSize)

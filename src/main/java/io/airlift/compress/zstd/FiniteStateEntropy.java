@@ -14,11 +14,11 @@
 package io.airlift.compress.zstd;
 
 import static io.airlift.compress.zstd.BitStream.peekBits;
+import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static io.airlift.compress.zstd.Constants.SIZE_OF_SHORT;
 import static io.airlift.compress.zstd.FseTableReader.FSE_MAX_SYMBOL_VALUE;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
-import static io.airlift.compress.zstd.Constants.SIZE_OF_INT;
 import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class FiniteStateEntropy
@@ -30,6 +30,10 @@ class FiniteStateEntropy
     public static final int FSE_NCOUNTBOUND = 512; // TODO: rename
     private static final int[] REST_TO_BEAT = new int[] {0, 473195, 504333, 520860, 550000, 700000, 750000, 830000};
     private static final short UNASSIGNED = -2;
+
+    private FiniteStateEntropy()
+    {
+    }
 
     public static int decompress(FiniteStateEntropy.Table table, final Object inputBase, final long inputAddress, final long inputLimit, byte[] outputBuffer)
     {

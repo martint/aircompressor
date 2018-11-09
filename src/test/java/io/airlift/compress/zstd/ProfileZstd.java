@@ -19,6 +19,10 @@ import java.nio.file.Paths;
 
 public class ProfileZstd
 {
+    private ProfileZstd()
+    {
+    }
+
     public static void main(String[] args)
             throws Exception
     {
@@ -36,5 +40,4 @@ public class ProfileZstd
             int compressedSize = compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
         }
     }
-
 }
