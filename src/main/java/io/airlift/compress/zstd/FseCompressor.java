@@ -17,8 +17,15 @@ import static io.airlift.compress.zstd.Constants.SIZE_OF_LONG;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
 
+import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
+
 public class FseCompressor
 {
+    public static int compress(Object outputBase, long outputAddress, int outputSize, byte[] input, int inputSize, FseCompressionTable table)
+    {
+        return compress(outputBase, outputAddress, outputSize, input, ARRAY_BYTE_BASE_OFFSET, inputSize, table);
+    }
+
     public static int compress(Object outputBase, long outputAddress, int outputSize, Object inputBase, long inputAddress, int inputSize, FseCompressionTable table)
     {
         verify(outputSize >= SIZE_OF_LONG, -1, "Output size too small"); // TODO

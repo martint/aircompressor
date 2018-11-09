@@ -16,9 +16,9 @@ package io.airlift.compress.zstd;
 import io.airlift.compress.thirdparty.ZstdJniCompressor;
 
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class X
 {
@@ -27,17 +27,10 @@ public class X
     {
         ZstdCompressor compressor = new ZstdCompressor();
 
-//        Path path = Paths.get("testdata", "silesia", "mr");
+        Path path = Paths.get("testdata", "silesia", "mr");
 //        Path path = Paths.get("/usr/local/fb-flake8/flake8-2/future/types/newmemoryview.pyc");
-//        byte[] original = Files.readAllBytes(path);
+        byte[] original = Files.readAllBytes(path);
 
-        byte[] original = new byte[10000];
-        for (int i = 0; i < original.length; i++) {
-            original[i] = (byte) ThreadLocalRandom.current().nextInt(128);
-        }
-
-        Files.write(Paths.get("uniform_ascii.bin"), original);
-        
         // Files.readAllBytes(Paths.get("testdata", "silesia", "xml"));
 
         int maxCompressLength = compressor.maxCompressedLength(original.length);
@@ -51,9 +44,10 @@ public class X
         System.out.printf("compressed size = " + compressedSize);
 //        System.out.println(controlSize + " vs " + compressedSize);
 //        int compressedSize = 0;
-//        for (int i = 0; i < 1000; i++) {
-//            compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
-//        }
+        boolean x = true;
+        while (x) {
+            compressor.compress(original, 0, original.length, compressed, 0, compressed.length);
+        }
 
 
         System.err.println("decompressing");

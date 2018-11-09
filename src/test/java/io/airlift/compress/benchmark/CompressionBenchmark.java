@@ -123,6 +123,8 @@ public class CompressionBenchmark
             options = options.include(".*\\." + CompressionBenchmark.class.getSimpleName() + ".*");
         }
 
+//        options.addProfiler(GCProfiler.class);
+        
         Collection<RunResult> results = new Runner(options.build()).run();
 
         int count = 0;

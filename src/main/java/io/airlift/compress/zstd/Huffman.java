@@ -32,7 +32,7 @@ class Huffman
     public static final int MAX_TABLE_LOG = 12;
     public static final int MIN_TABLE_LOG = 5;
 
-    private static final int MAX_FSE_TABLE_LOG = 6;
+    public static final int MAX_FSE_TABLE_LOG = 6;
 
     // stats
     private final byte[] weights = new byte[MAX_SYMBOL + 1];

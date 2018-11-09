@@ -13,17 +13,14 @@
  */
 package io.airlift.compress.zstd;
 
+import static io.airlift.compress.zstd.Huffman.MAX_FSE_TABLE_LOG;
 import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL;
-import static io.airlift.compress.zstd.Huffman.MAX_SYMBOL_COUNT;
+import static io.airlift.compress.zstd.Huffman.MAX_TABLE_LOG;
 import static io.airlift.compress.zstd.UnsafeUtil.UNSAFE;
 import static io.airlift.compress.zstd.Util.verify;
-import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 public final class HuffmanCompressionTable
 {
-    public static final int MAX_TABLE_LOG = 12;
-    private static final int MAX_FSE_TABLELOG_FOR_HUFF_HEADER = 6;
-
     final short[] values;
     final byte[] numberOfBits;
     int maxSymbol;
@@ -60,7 +57,7 @@ public final class HuffmanCompressionTable
         }
 
         // attempt weights compression by FSE
-        int size = compressWeights(outputBase, output + 1, outputSize - 1, weights, maxSymbol);
+        int size = compressWeights(outputBase, output + 1, outputSize - 1, weights, maxSymbol, workspace);
 
         if (maxSymbol > 127 && size > 127) {
             // This should never happen. Since weights are in the range [0, 12], they can be compressed optimally to ~3.7 bits per symbol for a uniform distribution.
@@ -133,23 +130,18 @@ public final class HuffmanCompressionTable
     /**
      * All elements within weightTable must be <= Huffman.MAX_TABLE_LOG
      */
-    private static int compressWeights(Object outputBase, long outputAddress, int outputSize, byte[] weights, int weightsLength)
+    private static int compressWeights(Object outputBase, long outputAddress, int outputSize, byte[] weights, int weightsLength, HuffmanTableWriterWorkspace workspace)
     {
-        long output = outputAddress;
-        long outputLimit = outputAddress + outputSize;
-
-        short[] normalizedCounts = new short[MAX_TABLE_LOG + 1]; // TODO: preallocate
-
         if (weightsLength <= 1) {
             return 0; // Not compressible
         }
 
         // Scan input and build symbol stats
-        Histogram histogram = Histogram.count(weights, weightsLength, MAX_TABLE_LOG, new int[MAX_TABLE_LOG + 1] /* TODO: preallocate */);
+        Histogram histogram = Histogram.count(weights, weightsLength, MAX_TABLE_LOG, workspace.counts);
 
         int maxCount = histogram.largestCount;
         int maxSymbol = histogram.maxSymbol;
-        int[] count = histogram.counts;
+        int[] counts = histogram.counts;
 
         if (maxCount == weightsLength) {
             return 1; // only a single symbol in source
@@ -158,53 +150,27 @@ public final class HuffmanCompressionTable
             return 0; // each symbol present maximum once => not compressible
         }
 
-        int tableLog = FiniteStateEntropy.optimalTableLog(MAX_FSE_TABLELOG_FOR_HUFF_HEADER, weightsLength, maxSymbol);
-        FiniteStateEntropy.normalizeCounts(normalizedCounts, tableLog, count, weightsLength, maxSymbol);
+        short[] normalizedCounts = workspace.normalizedCounts;
+
+        int tableLog = FiniteStateEntropy.optimalTableLog(MAX_FSE_TABLE_LOG, weightsLength, maxSymbol);
+        FiniteStateEntropy.normalizeCounts(normalizedCounts, tableLog, counts, weightsLength, maxSymbol);
+
+        long output = outputAddress;
+        long outputLimit = outputAddress + outputSize;
 
         // Write table description header
-        int headerSize = FiniteStateEntropy.writeNormalizedCounts(outputBase, output, (int) (outputLimit - output), normalizedCounts, maxSymbol, tableLog);
+        int headerSize = FiniteStateEntropy.writeNormalizedCounts(outputBase, output, outputSize, normalizedCounts, maxSymbol, tableLog);
         output += headerSize;
 
         // Compress
-        FseCompressionTable compressionTable = new FseCompressionTable(MAX_FSE_TABLELOG_FOR_HUFF_HEADER, MAX_TABLE_LOG); // TODO: pre-allocate
+        FseCompressionTable compressionTable = workspace.fseTable;
         FiniteStateEntropy.buildCompressionTable(compressionTable, normalizedCounts, maxSymbol, tableLog);
-        int compressedSize = FseCompressor.compress(outputBase, output, (int) (outputLimit - output), weights, ARRAY_BYTE_BASE_OFFSET, weightsLength, compressionTable);
+        int compressedSize = FseCompressor.compress(outputBase, output, (int) (outputLimit - output), weights, weightsLength, compressionTable);
         if (compressedSize == 0) {
             return 0; // not enough space for compressed data
         }
         output += compressedSize;
 
         return (int) (output - outputAddress);
-    }
-
-    public static void main(String[] args)
-    {
-//        HuffmanCompressionTable table = new HuffmanCompressionTable(MAX_SYMBOL_COUNT);
-//        int[] counts = new int[MAX_SYMBOL_COUNT];
-//        for (int i = 0; i < counts.length; i++) {
-//            counts[i] = 1;
-//        }
-//
-//        HuffmanCompressor.buildCompressionTable(
-//                table,
-//                counts,
-//                MAX_SYMBOL,
-//                11,
-//                new HuffmanCompressionTableWorkspace());
-//
-//        byte[] compressed = new byte[1000];
-//
-//        table.write(compressed, 16, compressed.length, new HuffmanTableWriterWorkspace());
-//        System.out.println();
-
-        byte[] weights = new byte[MAX_SYMBOL_COUNT];
-        for (int i = 0; i < weights.length; i++) {
-            weights[i] = (byte) (i % 12);
-        }
-
-        byte[] compressed = new byte[1000];
-
-        int size = compressWeights(compressed, 16, compressed.length, weights, weights.length);
-        System.out.println(size);
     }
 }

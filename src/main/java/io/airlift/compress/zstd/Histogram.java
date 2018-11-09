@@ -20,9 +20,8 @@ import static sun.misc.Unsafe.ARRAY_BYTE_BASE_OFFSET;
 
 class Histogram
 {
-    // TODO: access modifiers
-    int maxSymbol;
-    int largestCount;
+    final int maxSymbol;
+    final int largestCount;
     final int[] counts;
 
     private Histogram(int maxSymbol, int largestCount, int[] counts)
@@ -35,44 +34,33 @@ class Histogram
     private static Histogram count(Object inputBase, long inputAddress, int inputSize, int maxSymbol, int[] workspace)
     {
 //        DebugLog.print("Computing histogram. Input size = %d", inputSize);
-
         long input = inputAddress;
-        long inputLimit = inputAddress + inputSize;
 
         // TODO: HIST_count_parallel_wksp heuristic
 
-        // TODO: allocate once per compressor & fill with 0s:
-        //  int[] counts = new int[MAX_SEQUENCES + 1]; for sequence encoder
-        //  int[] counts = new int[HUF_SYMBOLVALUE_MAX + 1]; for huffman encoder
         int[] counts = workspace;
         Arrays.fill(counts, 0);
 
-        if (inputSize == 0) {
-            return new Histogram(0, 0, counts);
-        }
-
-        for (int i = 0; i < inputSize; i++) {
-            int symbol = UNSAFE.getByte(inputBase, input) & 0xFF;
-            input++;
-            counts[symbol]++;
-        }
-
-        while (counts[maxSymbol] == 0) {
-            maxSymbol--;
-        }
-
         int largestCount = 0;
-        for (int i = 0; i <= maxSymbol; i++) {
-            if (counts[i] > largestCount) {
-                largestCount = counts[i];
+        if (inputSize != 0) {
+            for (int i = 0; i < inputSize; i++) {
+                int symbol = UNSAFE.getByte(inputBase, input) & 0xFF;
+                input++;
+                counts[symbol]++;
+            }
+
+            while (counts[maxSymbol] == 0) {
+                maxSymbol--;
+            }
+
+            for (int i = 0; i <= maxSymbol; i++) {
+                if (counts[i] > largestCount) {
+                    largestCount = counts[i];
+                }
             }
         }
 
-//        for (int i = 0; i <= maxSymbol; i++) {
-//            DebugLog.print("symbol = %d, count = %d", i, counts[i]);
-//        }
-
-        return new Histogram(maxSymbol, largestCount, counts);
+        return new Histogram(maxSymbol, largestCount, counts); // TODO; counts is being passed in, so shouldn't have to return it
     }
 
     public static Histogram count(byte[] input, int length, int maxSymbol, int[] workspace)
