@@ -327,11 +327,10 @@ class ZstdFrameCompressor
         else {
             HuffmanCompressionTable newTable = context.getTemporaryTable();
 
-            HuffmanCompressor.buildCompressionTable(
-                    newTable,
+            newTable.initialize(
                     counts,
                     maxSymbol,
-                    HuffmanCompressor.optimalTableLog(MAX_HUFFMAN_TABLE_LOG, literalsSize, maxSymbol),
+                    HuffmanCompressionTable.optimalNumberOfBits(MAX_HUFFMAN_TABLE_LOG, literalsSize, maxSymbol),
                     context.getCompressionTableWorkspace());
 
             serializedTableSize = newTable.write(outputBase, outputAddress + headerSize, outputSize - headerSize, context.getTableWriterWorkspace());
